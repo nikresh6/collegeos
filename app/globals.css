@@ -10,6 +10,7 @@
 }
 
 html {
+  width: 100%;
   min-height: 100%;
   background: var(--background);
   color: var(--foreground);
@@ -19,7 +20,9 @@ html {
 }
 
 body {
+  width: 100%;
   min-height: 100vh;
+  min-height: 100svh;
   margin: 0;
   background: var(--background);
   color: var(--foreground);
@@ -30,74 +33,5 @@ body {
     Helvetica,
     Arial,
     sans-serif;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: rgb(255 255 255 / 0.30);
-}
-
-/*
-  Readability floor.
-  These rules preserve the dark minimalist system while preventing
-  intentionally-muted utility classes from becoming unreadable.
-*/
-@layer utilities {
-  .text-\[8px\] {
-    font-size: 10px !important;
-    line-height: 1.45 !important;
-  }
-
-  .text-\[9px\] {
-    font-size: 11px !important;
-    line-height: 1.45 !important;
-  }
-
-  .text-\[10px\] {
-    font-size: 12px !important;
-    line-height: 1.5 !important;
-  }
-
-  .text-white\/14,
-  .text-white\/15,
-  .text-white\/16 {
-    color: rgb(255 255 255 / 0.30) !important;
-  }
-
-  .text-white\/18,
-  .text-white\/20,
-  .text-white\/22 {
-    color: rgb(255 255 255 / 0.36) !important;
-  }
-
-  .text-white\/24,
-  .text-white\/25,
-  .text-white\/26 {
-    color: rgb(255 255 255 / 0.42) !important;
-  }
-
-  .text-white\/28,
-  .text-white\/30,
-  .text-white\/31,
-  .text-white\/32 {
-    color: rgb(255 255 255 / 0.48) !important;
-  }
-
-  .text-white\/34,
-  .text-white\/35,
-  .text-white\/36,
-  .text-white\/38 {
-    color: rgb(255 255 255 / 0.54) !important;
-  }
+  overflow-x: hidden;
 }
