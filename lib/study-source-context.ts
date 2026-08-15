@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  buildAssessmentLearningContext,
+  deriveAssessmentLearning,
+} from "./assessment-learning";
 
 export type StudySourceRef = {
   fileId: string;
@@ -71,6 +75,10 @@ export async function loadStudySourceContext({
     { data: topicsData, error: topicsError },
     { data: noteData, error: notesError },
     { data: linkData, error: linksError },
+    {
+      data: feedbackData,
+      error: feedbackError,
+    },
   ] = await Promise.all([
     supabase
       .from("course_topics")
@@ -93,11 +101,26 @@ export async function loadStudySourceContext({
       )
       .eq("course_id", courseId)
       .in("topic_id", uniqueTopicIds),
+    supabase
+      .from("assessment_feedback")
+      .select(
+        "assessment_kind, score_percent, preparedness_percent, difficulty_percent, quiz_similarity_percent, assistant_helpfulness_percent, study_hours, difference_notes, response_status, created_at",
+      )
+      .eq("course_id", courseId)
+      .eq(
+        "response_status",
+        "completed",
+      )
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(16),
   ]);
 
   if (topicsError) throw topicsError;
   if (notesError) throw notesError;
   if (linksError) throw linksError;
+  if (feedbackError) throw feedbackError;
 
   const topics: StudyTopicSource[] = (
     topicsData ?? []
@@ -176,13 +199,6 @@ export async function loadStudySourceContext({
         analysis,
       ],
     ),
-  );
-
-  const topicNames = new Map(
-    topics.map((topic) => [
-      topic.id,
-      topic.name,
-    ]),
   );
 
   const sourceTopicMap =
@@ -352,20 +368,49 @@ export async function loadStudySourceContext({
     }
   }
 
+  const assessmentLearning =
+    deriveAssessmentLearning(
+      feedbackData ?? [],
+    );
+
+  const calibrationText =
+    buildAssessmentLearningContext(
+      assessmentLearning,
+    ).slice(0, 2200);
+
+  const separator =
+    calibrationText
+      ? "\n\n---\n\n"
+      : "";
+
+  const materialBudget = Math.max(
+    1000,
+    maxCharacters -
+      calibrationText.length -
+      separator.length,
+  );
+
   const budgetPerBlock = Math.max(
     1000,
     Math.floor(
-      maxCharacters /
+      materialBudget /
         Math.max(1, blocks.length),
     ),
   );
 
-  const contextText = blocks
+  const materialContext = blocks
     .map((block) =>
       block.slice(0, budgetPerBlock),
     )
     .join("\n\n---\n\n")
-    .slice(0, maxCharacters);
+    .slice(0, materialBudget);
+
+  const contextText = materialContext
+    ? `${materialContext}${separator}${calibrationText}`.slice(
+        0,
+        maxCharacters,
+      )
+    : "";
 
   return {
     topics,
