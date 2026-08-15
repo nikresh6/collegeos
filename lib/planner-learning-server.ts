@@ -5,6 +5,29 @@ import {
   derivePlannerLearning,
   type PlannerLearningProfile,
 } from "./academic-intelligence";
+import {
+  deriveAssessmentLearning,
+} from "./assessment-learning";
+
+function clamp(
+  value: number,
+  minimum: number,
+  maximum: number,
+) {
+  return Math.max(
+    minimum,
+    Math.min(maximum, value),
+  );
+}
+
+function roundToFive(
+  value: number,
+) {
+  return (
+    Math.round(value / 5) *
+    5
+  );
+}
 
 export async function rebuildPlannerLearningProfile({
   supabase,
@@ -33,6 +56,10 @@ export async function rebuildPlannerLearningProfile({
     {
       data: responses,
       error: responsesError,
+    },
+    {
+      data: assessmentFeedback,
+      error: assessmentFeedbackError,
     },
   ] =
     await Promise.all([
@@ -81,6 +108,29 @@ export async function rebuildPlannerLearningProfile({
           },
         )
         .limit(1000),
+
+      supabase
+        .from(
+          "assessment_feedback",
+        )
+        .select(
+          "assessment_kind, score_percent, preparedness_percent, difficulty_percent, quiz_similarity_percent, assistant_helpfulness_percent, study_hours, difference_notes, response_status, created_at",
+        )
+        .eq(
+          "user_id",
+          userId,
+        )
+        .gte(
+          "created_at",
+          since,
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          },
+        )
+        .limit(60),
     ]);
 
   if (eventsError) {
@@ -91,7 +141,13 @@ export async function rebuildPlannerLearningProfile({
     throw responsesError;
   }
 
-  const profile =
+  if (
+    assessmentFeedbackError
+  ) {
+    throw assessmentFeedbackError;
+  }
+
+  const behavioralProfile =
     derivePlannerLearning({
       events:
         (events ?? []).map(
@@ -134,6 +190,107 @@ export async function rebuildPlannerLearningProfile({
         ),
       timeZone,
     });
+
+  const assessmentLearning =
+    deriveAssessmentLearning(
+      assessmentFeedback ?? [],
+    );
+
+  let profile =
+    behavioralProfile;
+
+  if (
+    assessmentLearning.sampleCount >
+    0
+  ) {
+    const feedbackConfidence =
+      clamp(
+        assessmentLearning.sampleCount *
+          0.3,
+        0,
+        0.9,
+      );
+
+    const effectiveMultiplier =
+      1 +
+      (
+        assessmentLearning.studyLoadMultiplier -
+        1
+      ) *
+        feedbackConfidence;
+
+    const baseDefault =
+      behavioralProfile.learned_default_minutes ??
+      45;
+
+    const learnedDefault =
+      roundToFive(
+        clamp(
+          baseDefault *
+            effectiveMultiplier,
+          20,
+          120,
+        ),
+      );
+
+    const baseMax =
+      behavioralProfile.learned_max_minutes ??
+      Math.max(
+        learnedDefault,
+        60,
+      );
+
+    const maxMultiplier =
+      1 +
+      (
+        effectiveMultiplier -
+        1
+      ) *
+        0.7;
+
+    const learnedMax =
+      roundToFive(
+        clamp(
+          Math.max(
+            learnedDefault,
+            baseMax *
+              maxMultiplier,
+          ),
+          25,
+          180,
+        ),
+      );
+
+    const combinedConfidence =
+      1 -
+      (
+        1 -
+        behavioralProfile.confidence
+      ) *
+        (
+          1 -
+          feedbackConfidence
+        );
+
+    profile = {
+      ...behavioralProfile,
+      learned_default_minutes:
+        learnedDefault,
+      learned_max_minutes:
+        learnedMax,
+      sample_count:
+        behavioralProfile.sample_count +
+        assessmentLearning.sampleCount,
+      confidence:
+        clamp(
+          combinedConfidence,
+          0,
+          1,
+        ),
+      learned_at:
+        new Date().toISOString(),
+    };
+  }
 
   const {
     error: saveError,
