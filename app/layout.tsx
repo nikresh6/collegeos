@@ -1,5 +1,6 @@
 import type {
   Metadata,
+  Viewport,
 } from "next";
 import "./globals.css";
 import {
@@ -20,6 +21,9 @@ import {
 import {
   AttentionCenter,
 } from "../components/attention-center";
+import {
+  AssessmentFeedbackPrompt,
+} from "../components/assessment-feedback-prompt";
 
 export const metadata:
   Metadata = {
@@ -27,6 +31,14 @@ export const metadata:
     "College Assistant",
   description:
     "A personal academic operating system for college.",
+};
+
+export const viewport:
+  Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#080809",
 };
 
 export default function RootLayout({
@@ -45,6 +57,7 @@ export default function RootLayout({
             <LectureAnalysisActivity />
             <AttentionCenter />
             <CommandCenter />
+            <AssessmentFeedbackPrompt />
           </LectureRecordingProvider>
         </SchoolIdentityProvider>
       </body>
