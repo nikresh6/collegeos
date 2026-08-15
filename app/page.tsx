@@ -1,2549 +1,2782 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  useRouter,
-} from "next/navigation";
-import {
-  ArrowRight,
-  Bell,
-  BookOpen,
-  BrainCircuit,
-  CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  Command,
-  FileText,
-  GraduationCap,
-  Headphones,
-  Home,
-  LayoutGrid,
-  Loader2,
-  LogOut,
-  Mic2,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-  Search,
-  Sparkles,
-  Target,
-  TrendingUp,
-  UserRound,
-} from "lucide-react";
+import Link from "next/link";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AnimatePresence,
   MotionConfig,
   motion,
 } from "framer-motion";
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  ChevronRight,
+  Flag,
+  Gauge,
+  Target,
+  Trophy,
+  Command,
+  Home,
+  LibraryBig,
+  LogOut,
+  Mic2,
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Search,
+  Sparkles,
+  TrendingUp,
+  UserRound,
+  X,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 import {
+  calculateGradebook,
+  type GradeCategoryInput,
+  type GradeItemInput,
+  type GradeScaleInput,
+} from "../lib/grades";
+import {
+  calculateGpa,
+  goalProgress,
+  type GpaCourse,
+} from "../lib/gpa";
+import {
   SchoolMark,
-  useSchoolIdentity,
 } from "../components/school-identity";
 
-type AttentionItem = {
-  key: string;
-  kind: string;
-  title: string;
-  detail: string;
-  score: number;
-  urgency:
-    | "critical"
-    | "high"
-    | "medium"
-    | "low";
-  courseId: string | null;
-  courseCode: string | null;
-  color: string | null;
-  dueAt: string | null;
-  preparedness: number | null;
-  action: {
-    label: string;
-    href: string;
-  };
-  secondaryAction?: {
-    label: string;
-    href: string;
-  } | null;
+type Course = {
+  id: string;
+  code: string;
+  name: string;
+  professor: string;
+  credits: number;
+  color: string;
 };
 
-type HomeData = {
-  generatedAt: string;
-  timeZone: string;
-  profile: {
-    firstName: string;
-    lastName: string;
-    preferredName: string;
-    onboardingCompleted: boolean;
-    currentSemesterId: string | null;
-    targetGpa: number;
-  };
-  courses: Array<{
-    id: string;
-    code: string;
-    name: string;
-    color: string;
-    professor: string | null;
-    credits: number;
-  }>;
-  attention: {
-    primary: AttentionItem | null;
-    items: AttentionItem[];
-    criticalCount: number;
-    highCount: number;
-  };
-  schedule: Array<{
-    id: string;
-    kind: "class" | "event";
-    courseId: string | null;
-    courseCode: string | null;
-    color: string | null;
-    title: string;
-    itemType: string;
-    startsAt: string;
-    endsAt: string;
-    location: string | null;
-    source: string;
-  }>;
-  preparedness: Array<{
-    courseId: string;
-    courseCode: string;
-    courseName: string;
-    color: string;
-    preparedness: number | null;
-    weakest: Array<{
-      id: string;
-      name: string;
-      mastery: number;
-    }>;
-  }>;
-  recent: Array<{
-    id: string;
-    kind: "note" | "lecture" | "guide";
-    title: string;
-    courseCode: string | null;
-    color: string | null;
-    at: string;
-    href: string;
-  }>;
-  learning: {
-    summary: string | null;
-    profile: {
-      confidence: number;
-      sample_count: number;
-      learned_preferred_period: string | null;
-      learned_default_minutes: number | null;
-      completion_rate: number | null;
-    };
-  };
+type DashboardCourseGrade = GpaCourse & {
+  color: string;
+  nextLetter: string | null;
+  pointsToNextLevel: number | null;
+  levelProgress: number;
 };
 
-const NAV = [
-  {
-    label: "Home",
-    icon: Home,
-    href: "/",
-  },
-  {
-    label: "Study",
-    icon: BrainCircuit,
-    href: "/study",
-  },
-  {
-    label: "Lectures",
-    icon: Mic2,
-    href: "/lectures",
-  },
-  {
-    label: "Notes",
-    icon: FileText,
-    href: "/notes",
-  },
-  {
-    label: "Calendar",
-    icon: CalendarDays,
-    href: "/calendar",
-  },
-  {
-    label: "Grades",
-    icon: TrendingUp,
-    href: "/grades",
-  },
-];
+type UpcomingEvent = {
+  id: string;
+  course_id: string;
+  name: string;
+  event_type: string;
+  start_date: string;
+  notes: string | null;
+};
 
-function relativeTime(
-  value: string,
-) {
-  const diff =
-    Date.now() -
-    new Date(value).getTime();
 
-  if (
-    !Number.isFinite(diff)
-  ) {
-    return "";
-  }
+type SchoolTheme = {
+  name: string;
+  shortName: string;
+  initial: string;
+  accent: string;
+  accentLight: string;
+  accentDark: string;
+  brandColors: string[];
+};
 
-  const minutes =
-    Math.max(
-      0,
-      Math.round(
-        diff / 60000,
+const defaultSchoolTheme: SchoolTheme = {
+  name: "College Assistant",
+  shortName: "Your school",
+  initial: "C",
+  accent: "#CFAE70",
+  accentLight: "#F3DFB6",
+  accentDark: "#8A713E",
+  brandColors: [
+    "#CFAE70",
+    "#8BA18E",
+    "#B3C9CD",
+    "#ECB748",
+    "#946E24",
+    "#A5A5AA",
+  ],
+};
+
+const SchoolThemeContext = createContext<SchoolTheme>(defaultSchoolTheme);
+
+function useSchoolTheme() {
+  return useContext(SchoolThemeContext);
+}
+
+const revealTransition = {
+  duration: 0.68,
+  ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+};
+
+export default function Dashboard() {
+  const router = useRouter();
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [showAddCourse, setShowAddCourse] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [now, setNow] = useState<Date | null>(null);
+  const [localTimeZone, setLocalTimeZone] = useState("");
+  const [schoolTheme, setSchoolTheme] =
+    useState<SchoolTheme>(defaultSchoolTheme);
+  const [semesterName, setSemesterName] = useState("Current semester");
+  const [currentSemesterId, setCurrentSemesterId] =
+    useState<string | null>(null);
+  const [targetGpa, setTargetGpa] = useState(3.7);
+  const [preferredName, setPreferredName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [courseGrades, setCourseGrades] = useState<
+    DashboardCourseGrade[]
+  >([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<
+    UpcomingEvent[]
+  >([]);
+
+  const totalCredits = useMemo(
+    () => courses.reduce((sum, course) => sum + course.credits, 0),
+    [courses],
+  );
+
+  const semesterGpaResult = useMemo(
+    () => calculateGpa(courseGrades),
+    [courseGrades],
+  );
+
+  const semesterGpa = semesterGpaResult.gpa;
+
+  const gpaGoal = useMemo(
+    () => goalProgress(semesterGpa, targetGpa),
+    [semesterGpa, targetGpa],
+  );
+
+  const courseById = useMemo(
+    () =>
+      new Map(
+        courses.map((course) => [course.id, course]),
       ),
+    [courses],
+  );
+
+  const trackedCourseGrades = useMemo(
+    () =>
+      courseGrades
+        .filter(
+          (course) =>
+            course.letterGrade &&
+            course.currentPercent !== null,
+        )
+        .sort(
+          (a, b) =>
+            (b.currentPercent ?? 0) -
+            (a.currentPercent ?? 0),
+        ),
+    [courseGrades],
+  );
+
+  const accountName = useMemo(() => {
+    const fullName = [firstName.trim(), lastName.trim()]
+      .filter(Boolean)
+      .join(" ");
+
+    return fullName || preferredName || "Your profile";
+  }, [firstName, lastName, preferredName]);
+
+  const accountInitials = useMemo(() => {
+    const initials = `${firstName.trim().charAt(0)}${lastName
+      .trim()
+      .charAt(0)}`
+      .toUpperCase()
+      .trim();
+
+    return (
+      initials ||
+      preferredName.trim().charAt(0).toUpperCase() ||
+      schoolTheme.initial
     );
-
-  if (minutes < 2) {
-    return "just now";
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-
-  const hours =
-    Math.round(
-      minutes / 60,
-    );
-
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-
-  const days =
-    Math.round(
-      hours / 24,
-    );
-
-  return `${days}d ago`;
-}
-
-function timeText(
-  value: string,
-) {
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat(
-    undefined,
-    {
-      hour: "numeric",
-      minute: "2-digit",
-    },
-  ).format(date);
-}
-
-function greeting(
-  firstName: string,
-) {
-  const hour =
-    new Date().getHours();
-
-  let base =
-    "Good evening";
-
-  if (hour < 5) {
-    base =
-      "Good night";
-  } else if (
-    hour < 12
-  ) {
-    base =
-      "Good morning";
-  } else if (
-    hour < 17
-  ) {
-    base =
-      "Good afternoon";
-  }
-
-  return firstName
-    ? `${base}, ${firstName}.`
-    : `${base}.`;
-}
-
-function urgencyLabel(
-  urgency:
-    | "critical"
-    | "high"
-    | "medium"
-    | "low",
-) {
-  if (
-    urgency ===
-    "critical"
-  ) {
-    return "Needs attention";
-  }
-
-  if (
-    urgency === "high"
-  ) {
-    return "Important";
-  }
-
-  if (
-    urgency ===
-    "medium"
-  ) {
-    return "Worth doing";
-  }
-
-  return "On your radar";
-}
-
-function recentIcon(
-  kind:
-    | "note"
-    | "lecture"
-    | "guide",
-) {
-  if (kind === "note") {
-    return FileText;
-  }
-
-  if (
-    kind === "lecture"
-  ) {
-    return Headphones;
-  }
-
-  return BookOpen;
-}
-
-export default function HomePage() {
-  const router =
-    useRouter();
-
-  const {
-    identity,
-  } =
-    useSchoolIdentity();
-
-  const [
-    data,
-    setData,
-  ] =
-    useState<HomeData | null>(
-      null,
-    );
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    refreshing,
-    setRefreshing,
-  ] =
-    useState(false);
-
-  const [
-    sidebarCollapsed,
-    setSidebarCollapsed,
-  ] =
-    useState(true);
-
-  const [
-    accountMenuOpen,
-    setAccountMenuOpen,
-  ] =
-    useState(false);
-
-  const [
-    loggingOut,
-    setLoggingOut,
-  ] =
-    useState(false);
-
-  const [
-    accountEmail,
-    setAccountEmail,
-  ] =
-    useState("");
-
-  const [
-    error,
-    setError,
-  ] = useState("");
-
-  const [
-    addingCourse,
-    setAddingCourse,
-  ] =
-    useState(false);
-
-  const [
-    creatingCourse,
-    setCreatingCourse,
-  ] =
-    useState(false);
-
-  const [
-    courseDraft,
-    setCourseDraft,
-  ] = useState({
-    code: "",
-    name: "",
-    professor: "",
-    credits: "3",
-  });
-
-  const loadHome =
-    useCallback(
-      async (
-        quiet =
-          false,
-      ) => {
-        try {
-          if (quiet) {
-            setRefreshing(
-              true,
-            );
-          } else {
-            setLoading(
-              true,
-            );
-          }
-
-          setError("");
-
-          const {
-            data: {
-              session,
-            },
-            error:
-              sessionError,
-          } =
-            await supabase.auth.getSession();
-
-          if (
-            sessionError
-          ) {
-            throw sessionError;
-          }
-
-          if (!session) {
-            router.replace(
-              "/onboarding",
-            );
-            return;
-          }
-
-          setAccountEmail(
-            session.user.email ??
-            "",
-          );
-
-          const tz =
-            Intl.DateTimeFormat()
-              .resolvedOptions()
-              .timeZone;
-
-          const response =
-            await fetch(
-              `/api/intelligence/home?tz=${encodeURIComponent(
-                tz,
-              )}`,
-              {
-                headers: {
-                  Authorization:
-                    `Bearer ${session.access_token}`,
-                },
-                cache:
-                  "no-store",
-              },
-            );
-
-          const payload =
-            (await response.json()) as {
-              ok?: boolean;
-              error?: string;
-            } &
-              HomeData;
-
-          if (
-            !response.ok ||
-            payload.ok ===
-              false
-          ) {
-            throw new Error(
-              payload.error ||
-                "Could not load Home.",
-            );
-          }
-
-          if (
-            payload.profile &&
-            payload.profile.onboardingCompleted ===
-              false
-          ) {
-            router.replace(
-              "/onboarding",
-            );
-            return;
-          }
-
-          setData(
-            payload,
-          );
-        } catch (
-          loadError
-        ) {
-          console.error(
-            "Could not load Home intelligence:",
-            loadError,
-          );
-
-          setError(
-            loadError instanceof
-              Error
-              ? loadError.message
-              : "Could not load Home.",
-          );
-        } finally {
-          setLoading(
-            false,
-          );
-          setRefreshing(
-            false,
-          );
-        }
-      },
-      [router],
-    );
+  }, [firstName, lastName, preferredName, schoolTheme.initial]);
 
   useEffect(() => {
-    const saved =
-      window.localStorage.getItem(
-        "college-assistant-sidebar-collapsed",
-      );
-
-    if (
-      saved === "true" ||
-      saved === "false"
-    ) {
-      setSidebarCollapsed(
-        saved === "true",
-      );
-    }
+    void initializeApp();
   }, []);
 
   useEffect(() => {
-    void loadHome();
-
-    function refreshOnFocus() {
-      void loadHome(
-        true,
-      );
-    }
-
-    function refreshOnVisibility() {
-      if (
-        document
-          .visibilityState ===
-        "visible"
-      ) {
-        void loadHome(
-          true,
-        );
-      }
-    }
-
-    window.addEventListener(
-      "focus",
-      refreshOnFocus,
+    const saved = window.localStorage.getItem(
+      "college-assistant-sidebar-collapsed",
     );
 
-    document.addEventListener(
-      "visibilitychange",
-      refreshOnVisibility,
-    );
-
-    const interval =
-      window.setInterval(
-        () => {
-          void loadHome(
-            true,
-          );
-        },
-        90_000,
-      );
-
-    return () => {
-      window.removeEventListener(
-        "focus",
-        refreshOnFocus,
-      );
-
-      document.removeEventListener(
-        "visibilitychange",
-        refreshOnVisibility,
-      );
-
-      window.clearInterval(
-        interval,
-      );
-    };
-  }, [loadHome]);
-
-  const primary =
-    data?.attention
-      .primary ??
-    null;
-
-  const secondary =
-    useMemo(
-      () =>
-        (
-          data?.attention
-            .items ?? []
-        )
-          .filter(
-            (item) =>
-              item.key !==
-              primary?.key,
-          )
-          .slice(0, 3),
-      [
-        data,
-        primary,
-      ],
-    );
-
-  const currentAndNext =
-    useMemo(() => {
-      if (!data) {
-        return [];
-      }
-
-      const now =
-        Date.now();
-
-      const relevant =
-        data.schedule.filter(
-          (item) =>
-            new Date(
-              item.endsAt,
-            ).getTime() >
-            now -
-              20 *
-                60000,
-        );
-
-      return relevant.slice(
-        0,
-        5,
-      );
-    }, [data]);
-
-  const openCommand =
-    () => {
-      window.dispatchEvent(
-        new CustomEvent(
-          "college-assistant:open-command-center",
-        ),
-      );
-    };
-
-  async function dismissAttention(
-    key: string,
-    hours?: number,
-  ) {
-    try {
-      const {
-        data: {
-          session,
-        },
-      } =
-        await supabase.auth.getSession();
-
-      if (!session) {
-        return;
-      }
-
-      const response =
-        await fetch(
-          "/api/intelligence/attention",
-          {
-            method:
-              "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Authorization:
-                `Bearer ${session.access_token}`,
-            },
-            body:
-              JSON.stringify({
-                action:
-                  hours
-                    ? "snooze"
-                    : "dismiss",
-                key,
-                hours,
-              }),
-          },
-        );
-
-      if (!response.ok) {
-        return;
-      }
-
-      await loadHome(
-        true,
-      );
-    } catch (
-      dismissError
-    ) {
-      console.warn(
-        "Could not update attention:",
-        dismissError,
-      );
+    if (saved === "false") {
+      setSidebarCollapsed(false);
+    } else {
+      setSidebarCollapsed(true);
     }
-  }
-
-  async function createCourse() {
-    if (
-      creatingCourse
-    ) {
-      return;
-    }
-
-    const code =
-      courseDraft.code
-        .trim()
-        .toUpperCase();
-
-    const name =
-      courseDraft.name.trim();
-
-    const credits =
-      Number(
-        courseDraft.credits,
-      );
-
-    if (
-      !code ||
-      !name ||
-      !Number.isFinite(
-        credits,
-      ) ||
-      credits <= 0
-    ) {
-      setError(
-        "Add a course code, name, and valid credit count.",
-      );
-      return;
-    }
-
-    try {
-      setCreatingCourse(
-        true,
-      );
-
-      const {
-        data: {
-          session,
-        },
-        error:
-          sessionError,
-      } =
-        await supabase.auth.getSession();
-
-      if (
-        sessionError
-      ) {
-        throw sessionError;
-      }
-
-      if (
-        !session ||
-        !data
-      ) {
-        throw new Error(
-          "You must be signed in.",
-        );
-      }
-
-      const palette =
-        [
-          identity.primary,
-          identity.secondary,
-          identity.highlight,
-          "#8BA18E",
-          "#B3C9CD",
-          "#CFAE70",
-        ].filter(Boolean);
-
-      const color =
-        palette[
-          data.courses
-            .length %
-            palette.length
-        ];
-
-      const {
-        data:
-          created,
-        error:
-          createError,
-      } =
-        await supabase
-          .from("courses")
-          .insert({
-            user_id:
-              session.user.id,
-            semester_id:
-              data.profile
-                .currentSemesterId,
-            code,
-            name,
-            professor:
-              courseDraft.professor.trim() ||
-              null,
-            credits,
-            color,
-          })
-          .select(
-            "id",
-          )
-          .single();
-
-      if (
-        createError
-      ) {
-        throw createError;
-      }
-
-      setAddingCourse(
-        false,
-      );
-
-      setCourseDraft({
-        code: "",
-        name: "",
-        professor: "",
-        credits: "3",
-      });
-
-      await loadHome(
-        true,
-      );
-
-      router.push(
-        `/courses/${created.id}`,
-      );
-    } catch (
-      createError
-    ) {
-      setError(
-        createError instanceof
-          Error
-          ? createError.message
-          : "Could not create this course.",
-      );
-    } finally {
-      setCreatingCourse(
-        false,
-      );
-    }
-  }
+  }, []);
 
   function toggleSidebar() {
-    const next =
-      !sidebarCollapsed;
+    setSidebarCollapsed((current) => {
+      const next = !current;
 
-    setSidebarCollapsed(
-      next,
-    );
+      window.localStorage.setItem(
+        "college-assistant-sidebar-collapsed",
+        String(next),
+      );
 
-    window.localStorage.setItem(
-      "college-assistant-sidebar-collapsed",
-      String(next),
-    );
+      return next;
+    });
   }
 
-  async function signOut() {
-    if (loggingOut) {
+  useEffect(() => {
+    function updateLocalTime() {
+      setNow(new Date());
+      setLocalTimeZone(
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
+    }
+
+    updateLocalTime();
+
+    const interval = window.setInterval(updateLocalTime, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const greeting = useMemo(() => {
+    if (!now) return preferredName ? `Welcome, ${preferredName}.` : "Welcome.";
+
+    const hour = now.getHours();
+    let base = "Good evening";
+
+    if (hour < 5) base = "Good night";
+    else if (hour < 12) base = "Good morning";
+    else if (hour < 17) base = "Good afternoon";
+
+    return preferredName ? `${base}, ${preferredName}.` : `${base}.`;
+  }, [now, preferredName]);
+
+  const formattedDate = useMemo(() => {
+    if (!now) return "";
+
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    }).format(now);
+  }, [now]);
+
+  const formattedTime = useMemo(() => {
+    if (!now) return "";
+
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(now);
+  }, [now]);
+
+  async function initializeApp() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      const userId = session.user.id;
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select(
+          "school_id, first_name, last_name, preferred_name, target_gpa, onboarding_completed, current_semester_id",
+        )
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (!profile?.onboarding_completed || !profile.school_id) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      setFirstName(profile.first_name ?? "");
+      setLastName(profile.last_name ?? "");
+      setPreferredName(
+        profile.preferred_name ?? profile.first_name ?? "",
+      );
+      setAccountEmail(session.user.email ?? "");
+      setTargetGpa(Number(profile.target_gpa ?? 3.7));
+      setCurrentSemesterId(profile.current_semester_id ?? null);
+
+      const [{ data: school, error: schoolError }, semesterResult] =
+        await Promise.all([
+          supabase
+            .from("schools")
+            .select(
+              "name, short_name, primary_color, secondary_color, brand_colors",
+            )
+            .eq("id", profile.school_id)
+            .single(),
+          profile.current_semester_id
+            ? supabase
+                .from("semesters")
+                .select("name")
+                .eq("id", profile.current_semester_id)
+                .single()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
+
+      if (schoolError) {
+        throw schoolError;
+      }
+
+      if (semesterResult.error) {
+        throw semesterResult.error;
+      }
+
+      const primary = school.primary_color || defaultSchoolTheme.accent;
+      const secondary =
+        school.secondary_color || defaultSchoolTheme.accentDark;
+      const shortName = school.short_name || school.name;
+
+      setSchoolTheme({
+        name: school.name,
+        shortName,
+        initial: shortName.charAt(0).toUpperCase(),
+        accent: primary,
+        accentLight: mixHex(primary, "#FFFFFF", 0.34),
+        accentDark: mixHex(secondary, "#000000", 0.18),
+        brandColors: buildThemePalette(
+          school.brand_colors ?? [],
+          primary,
+          secondary,
+        ),
+      });
+
+      setSemesterName(semesterResult.data?.name ?? "Current semester");
+
+      const loadedCourses = await loadCourses(
+        profile.current_semester_id ?? null,
+      );
+
+      await loadDashboardAcademicData(loadedCourses);
+    } catch (error) {
+      console.error("Initialization error:", error);
+
+      alert(
+        "There was a problem connecting to the database. Check the browser console.",
+      );
+    } finally {
+      setLoadingCourses(false);
+    }
+  }
+
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    try {
+      setLoggingOut(true);
+      setAccountMenuOpen(false);
+
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
+      }
+
+      router.replace("/onboarding");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Could not log out. Please try again.");
+      setLoggingOut(false);
+    }
+  }
+
+  async function loadCourses(semesterId: string | null) {
+    let query = supabase
+      .from("courses")
+      .select("id, code, name, professor, credits, color")
+      .is("archived_at", null)
+      .order("created_at", { ascending: true });
+
+    if (semesterId) {
+      query = query.eq("semester_id", semesterId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    const loadedCourses: Course[] = (data ?? []).map((course) => ({
+      id: course.id,
+      code: course.code,
+      name: course.name,
+      professor: course.professor ?? "",
+      credits: Number(course.credits),
+      color: course.color,
+    }));
+
+    setCourses(loadedCourses);
+    return loadedCourses;
+  }
+
+  async function loadDashboardAcademicData(
+    loadedCourses: Course[],
+  ) {
+    if (loadedCourses.length === 0) {
+      setCourseGrades([]);
+      setUpcomingEvents([]);
       return;
     }
 
-    try {
-      setLoggingOut(
-        true,
-      );
+    const courseIds = loadedCourses.map(
+      (course) => course.id,
+    );
 
-      await supabase.auth.signOut();
+    const today = localDateKey(new Date());
 
-      router.replace(
-        "/onboarding",
-      );
-    } finally {
-      setLoggingOut(
-        false,
-      );
-    }
+    const [
+      { data: categoryData, error: categoryError },
+      { data: itemData, error: itemError },
+      { data: scaleData, error: scaleError },
+      { data: eventData, error: eventError },
+    ] = await Promise.all([
+      supabase
+        .from("grading_categories")
+        .select("id, course_id, name, weight_percent")
+        .in("course_id", courseIds),
+      supabase
+        .from("course_grade_items")
+        .select(
+          "id, course_id, category_id, name, points_earned, points_possible",
+        )
+        .in("course_id", courseIds),
+      supabase
+        .from("course_grade_scale")
+        .select(
+          "course_id, letter_grade, min_percent, max_percent",
+        )
+        .in("course_id", courseIds),
+      supabase
+        .from("course_events")
+        .select(
+          "id, course_id, name, event_type, start_date, notes",
+        )
+        .in("course_id", courseIds)
+        .gte("start_date", today)
+        .order("start_date", { ascending: true })
+        .limit(6),
+    ]);
+
+    if (categoryError) throw categoryError;
+    if (itemError) throw itemError;
+    if (scaleError) throw scaleError;
+    if (eventError) throw eventError;
+
+    const gradeSnapshots = loadedCourses.map(
+      (course): DashboardCourseGrade => {
+        const categories: GradeCategoryInput[] = (
+          categoryData ?? []
+        )
+          .filter(
+            (category) =>
+              category.course_id === course.id,
+          )
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            weight_percent: Number(
+              category.weight_percent || 0,
+            ),
+          }));
+
+        const items: GradeItemInput[] = (
+          itemData ?? []
+        )
+          .filter(
+            (item) => item.course_id === course.id,
+          )
+          .map((item) => ({
+            id: item.id,
+            category_id: item.category_id,
+            name: item.name,
+            points_earned: Number(item.points_earned),
+            points_possible: Number(item.points_possible),
+          }));
+
+        const scale: GradeScaleInput[] = (
+          scaleData ?? []
+        )
+          .filter(
+            (row) => row.course_id === course.id,
+          )
+          .map((row) => ({
+            letter_grade: row.letter_grade,
+            min_percent:
+              row.min_percent === null
+                ? null
+                : Number(row.min_percent),
+            max_percent:
+              row.max_percent === null
+                ? null
+                : Number(row.max_percent),
+          }));
+
+        const summary = calculateGradebook(
+          categories,
+          items,
+          scale,
+        );
+
+        return {
+          id: course.id,
+          code: course.code,
+          name: course.name,
+          credits: course.credits,
+          letterGrade: summary.letterGrade,
+          currentPercent: summary.currentPercent,
+          color: course.color,
+          nextLetter: summary.nextLevel?.letterGrade ?? null,
+          pointsToNextLevel: summary.pointsToNextLevel,
+          levelProgress: summary.levelProgress,
+        };
+      },
+    );
+
+    setCourseGrades(gradeSnapshots);
+    setUpcomingEvents(
+      (eventData ?? []) as UpcomingEvent[],
+    );
   }
 
-  const accountName =
-    data?.profile
-      .preferredName ||
-    [
-      data?.profile
-        .firstName,
-      data?.profile
-        .lastName,
-    ]
-      .filter(Boolean)
-      .join(" ") ||
-    "Your profile";
+  async function addCourse(course: Omit<Course, "id">) {
+    const { data, error } = await supabase
+      .from("courses")
+      .insert({
+        semester_id: currentSemesterId,
+        code: course.code,
+        name: course.name,
+        professor: course.professor || null,
+        credits: course.credits,
+        color: course.color,
+      })
+      .select("id, code, name, professor, credits, color")
+      .single();
 
-  const accountInitials =
-    accountName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(
-        (part) =>
-          part[0]
-            ?.toUpperCase(),
-      )
-      .join("") ||
-    "U";
+    if (error) {
+      console.error("Error adding course:", error);
+      alert("Could not save the course.");
+      return;
+    }
 
-  if (
-    loading &&
-    !data
-  ) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#080809] text-white">
-        <div className="flex items-center gap-3 text-[11px] text-white/32">
-          <Loader2
-            size={14}
-            className="animate-spin"
-          />
-          Building your day
-        </div>
-      </main>
+    const savedCourse: Course = {
+      id: data.id,
+      code: data.code,
+      name: data.name,
+      professor: data.professor ?? "",
+      credits: Number(data.credits),
+      color: data.color,
+    };
+
+    const nextCourses = [...courses, savedCourse];
+    setCourses(nextCourses);
+    setShowAddCourse(false);
+    await loadDashboardAcademicData(nextCourses);
+  }
+
+  async function deleteCourse(id: string) {
+    const { error } = await supabase
+      .from("courses")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting course:", error);
+      alert("Could not delete the course.");
+      return;
+    }
+
+    const nextCourses = courses.filter(
+      (course) => course.id !== id,
     );
+    setCourses(nextCourses);
+    await loadDashboardAcademicData(nextCourses);
   }
 
   return (
-    <MotionConfig reducedMotion="user">
-      <main className="min-h-screen bg-[#080809] text-[#F5F5F7]">
-        <div
+    <SchoolThemeContext.Provider value={schoolTheme}>
+      <MotionConfig reducedMotion="user">
+      <main className="relative min-h-screen overflow-x-hidden bg-[#080809] text-[#F5F5F7]">
+        {/* Ambient school identity */}
+        <motion.div
           aria-hidden
-          className="pointer-events-none fixed left-[12%] top-[-330px] h-[700px] w-[850px] rounded-full opacity-[0.09] blur-[150px]"
-          style={{
-            backgroundColor:
-              identity.primary,
+          className="pointer-events-none fixed left-[18%] top-[-260px] h-[520px] w-[720px] rounded-full opacity-[0.09] blur-[120px]"
+          style={{ backgroundColor: schoolTheme.accent }}
+          animate={{
+            x: [0, 34, -12, 0],
+            y: [0, 18, -8, 0],
+            scale: [1, 1.05, 0.985, 1],
+          }}
+          transition={{
+            duration: 22,
+            repeat: Infinity,
+            ease: "easeInOut",
           }}
         />
 
-        <DesktopSidebar
-          collapsed={
-            sidebarCollapsed
-          }
-          accountMenuOpen={
-            accountMenuOpen
-          }
-          accountName={
-            accountName
-          }
-          accountEmail={
-            accountEmail
-          }
-          accountInitials={
-            accountInitials
-          }
-          loggingOut={
-            loggingOut
-          }
-          onToggle={
-            toggleSidebar
-          }
-          onToggleAccount={() =>
-            setAccountMenuOpen(
-              (current) =>
-                !current,
-            )
-          }
-          onSignOut={() =>
-            void signOut()
-          }
-          onOpenCommand={
-            openCommand
-          }
+        <motion.div
+          aria-hidden
+          className="pointer-events-none fixed bottom-[-380px] right-[-220px] h-[620px] w-[620px] rounded-full opacity-[0.055] blur-[140px]"
+          style={{ backgroundColor: schoolTheme.accent }}
+          animate={{
+            x: [0, -24, 14, 0],
+            y: [0, -18, 10, 0],
+            scale: [1, 0.97, 1.045, 1],
+          }}
+          transition={{
+            duration: 27,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
         />
 
-        <div
-          className={`pb-24 transition-[padding] duration-200 md:pb-10 ${
-            sidebarCollapsed
-              ? "md:pl-[88px]"
-              : "md:pl-[258px]"
-          }`}
-        >
-          <div className="mx-auto max-w-[1320px] px-5 pb-16 pt-6 sm:px-8 md:px-10 md:pt-9">
-            <header className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <SchoolMark
-                  size={38}
-                  quiet
-                />
-                <div>
-                  <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/25">
-                    Academic OS
-                  </p>
-                  <p className="mt-1 text-[10px] text-white/38">
-                    {new Intl.DateTimeFormat(
-                      undefined,
-                      {
-                        weekday:
-                          "long",
-                        month:
-                          "long",
-                        day:
-                          "numeric",
-                      },
-                    ).format(
-                      new Date(),
-                    )}
-                  </p>
-                </div>
-              </div>
+        <div className="relative flex min-h-screen">
+          {/* Desktop Sidebar */}
+          <motion.aside
+            initial={{ opacity: 0, x: -12 }}
+            animate={{
+              opacity: 1,
+              x: 0,
+              width: sidebarCollapsed ? 88 : 258,
+            }}
+            transition={{
+              opacity: {
+                delay: 0.08,
+                duration: 0.5,
+              },
+              x: {
+                delay: 0.08,
+                duration: 0.55,
+                ease: [0.22, 1, 0.36, 1],
+              },
+              width: {
+                duration: 0.34,
+                ease: [0.22, 1, 0.36, 1],
+              },
+            }}
+            className={`fixed bottom-0 left-0 top-0 z-50 hidden h-screen border-r border-white/[0.065] bg-[#0B0B0D]/94 py-5 backdrop-blur-2xl lg:flex lg:flex-col ${
+              sidebarCollapsed ? "px-3" : "px-5"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title={
+                sidebarCollapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
+              }
+              aria-label={
+                sidebarCollapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
+              }
+              className="absolute -right-3 top-[74px] z-30 flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.09] bg-[#141416] text-white/42 shadow-lg shadow-black/30 transition hover:border-white/[0.15] hover:bg-[#1A1A1D] hover:text-white/78"
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen size={13} />
+              ) : (
+                <PanelLeftClose size={13} />
+              )}
+            </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={
-                    openCommand
-                  }
-                  aria-label="Search or ask"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.065] bg-white/[0.015] text-white/28 transition hover:bg-white/[0.04] hover:text-white/58 sm:hidden"
-                >
-                  <Search
-                    size={12}
-                  />
-                </button>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: 0.16,
+                ...revealTransition,
+              }}
+              className={`flex items-center pb-8 pt-1 ${
+                sidebarCollapsed
+                  ? "justify-center"
+                  : "gap-3 px-2"
+              }`}
+            >
+              <SchoolMark
+                size={40}
+                className="shadow-[0_8px_30px_rgba(0,0,0,0.28)]"
+              />
 
-                <button
-                  type="button"
-                  onClick={
-                    openCommand
-                  }
-                  className="hidden items-center gap-3 rounded-full border border-white/[0.07] bg-white/[0.018] px-4 py-2.5 text-[9px] text-white/34 transition hover:border-white/[0.11] hover:bg-white/[0.04] hover:text-white/62 sm:flex"
-                >
-                  <Search
-                    size={11}
-                  />
-                  Search or ask
-                  <span className="rounded-md border border-white/[0.07] bg-black/30 px-1.5 py-0.5 text-[7px] text-white/20">
-                    ⌘K
-                  </span>
-                </button>
-              </div>
-            </header>
-
-            <section className="mt-12">
-              <div className="flex flex-wrap items-end justify-between gap-6">
-                <div>
-                  <p
-                    className="text-[9px] font-semibold uppercase tracking-[0.16em]"
-                    style={{
-                      color:
-                        identity.primary,
-                    }}
+              <AnimatePresence initial={false}>
+                {!sidebarCollapsed && (
+                  <motion.div
+                    key="school-sidebar-copy"
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -6 }}
+                    transition={{ duration: 0.18 }}
+                    className="min-w-0"
                   >
-                    Today
-                  </p>
-                  <h1 className="mt-3 max-w-[880px] text-[46px] font-medium leading-[0.97] tracking-[-0.06em] sm:text-[62px]">
-                    {greeting(
-                      data?.profile
-                        .preferredName ||
-                        data?.profile
-                          .firstName ||
-                        "",
-                    )}
-                  </h1>
-                  <p className="mt-4 max-w-2xl text-[13px] leading-6 text-white/35">
-                    {primary
-                      ? "Here is what deserves your attention, without the noise."
-                      : "Nothing urgent is pulling at you right now. Use the space well."}
-                  </p>
-                </div>
+                    <p className="truncate text-[13px] font-medium tracking-[-0.01em] text-white/90">
+                      {schoolTheme.shortName}
+                    </p>
 
-                {refreshing && (
-                  <div className="flex items-center gap-2 text-[8px] text-white/18">
-                    <Loader2
-                      size={9}
-                      className="animate-spin"
-                    />
-                    Refreshing
+                    <p className="mt-[2px] text-[11px] text-white/48">
+                      {semesterName}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {!sidebarCollapsed ? (
+              <div className="mb-3 px-3">
+                <p className="text-[12px] font-medium uppercase tracking-[0.15em] text-white/34">
+                  Workspace
+                </p>
+              </div>
+            ) : (
+              <div className="mx-auto mb-3 h-px w-7 bg-white/[0.07]" />
+            )}
+
+            <nav
+              className={
+                sidebarCollapsed
+                  ? "space-y-2"
+                  : "space-y-[3px]"
+              }
+            >
+              <NavigationItem
+                icon={Home}
+                label="Home"
+                active
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/")}
+              />
+              <NavigationItem
+                icon={BookOpen}
+                label="Courses"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/courses")}
+              />
+              <NavigationItem
+                icon={Sparkles}
+                label="Study"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/study")}
+              />
+              <NavigationItem
+                icon={Mic2}
+                label="Lectures"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/lectures")}
+              />
+              <NavigationItem
+                icon={CalendarDays}
+                label="Calendar"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/calendar")}
+              />
+              <NavigationItem
+                icon={TrendingUp}
+                label="Grades"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/grades")}
+              />
+            </nav>
+
+            <div className="mt-auto">
+              <div className="mb-5 border-t border-white/[0.055] pt-5">
+                {sidebarCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/grades")}
+                    title={`GPA target ${formatGpa(targetGpa)}`}
+                    aria-label={`GPA target ${formatGpa(targetGpa)}`}
+                    className="mx-auto flex h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.055] bg-white/[0.018] transition hover:border-white/[0.1] hover:bg-white/[0.04]"
+                    style={{ color: schoolTheme.accent }}
+                  >
+                    <TrendingUp size={16} />
+                  </button>
+                ) : (
+                  <div className="px-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[12px] uppercase tracking-[0.12em] text-white/40">
+                          GPA Target
+                        </p>
+
+                        <p className="mt-1 text-[24px] font-medium tracking-[-0.045em]">
+                          {formatGpa(targetGpa)}
+                        </p>
+                      </div>
+
+                      <motion.button
+                        type="button"
+                        onClick={() => router.push("/grades")}
+                        whileHover={{ scale: 1.06 }}
+                        whileTap={{ scale: 0.96 }}
+                        className="flex h-8 w-8 items-center justify-center rounded-full"
+                        style={{
+                          backgroundColor: `${schoolTheme.accent}12`,
+                        }}
+                        aria-label="Open grades"
+                      >
+                        <TrendingUp
+                          size={14}
+                          style={{
+                            color: schoolTheme.accent,
+                          }}
+                        />
+                      </motion.button>
+                    </div>
                   </div>
                 )}
               </div>
-            </section>
 
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                    y: -5,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                  }}
-                  className="mt-6 rounded-[16px] border border-red-400/15 bg-red-400/[0.035] px-4 py-3 text-[9px] leading-5 text-red-200/60"
-                >
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
-              <PrimaryRecommendation
-                item={
-                  primary
-                }
-                accent={
-                  identity.primary
-                }
-                onOpen={(
-                  href,
-                ) =>
-                  router.push(
-                    href,
-                  )
-                }
-                onSnooze={
-                  primary
-                    ? () =>
-                        void dismissAttention(
-                          primary.key,
-                          24,
-                        )
-                    : undefined
-                }
+              <NavigationItem
+                icon={UserRound}
+                label="Profile"
+                collapsed={sidebarCollapsed}
+                onClick={() => window.location.assign("/profile")}
               />
+            </div>
+          </motion.aside>
 
-              <TodayCard
-                items={
-                  currentAndNext
-                }
-                onOpen={() =>
-                  router.push(
-                    "/calendar",
-                  )
-                }
-              />
-            </section>
+          <motion.div
+            aria-hidden
+            initial={false}
+            animate={{
+              width: sidebarCollapsed ? 88 : 258,
+            }}
+            transition={{
+              duration: 0.34,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="hidden h-screen shrink-0 lg:block"
+          />
 
-            <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-              <div className="rounded-[24px] border border-white/[0.06] bg-[#101012] p-5 sm:p-6">
-                <div className="flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/22">
-                      Next in line
-                    </p>
-                    <h2 className="mt-2 text-[23px] font-medium tracking-[-0.035em]">
-                      A few things worth knowing.
-                    </h2>
-                  </div>
+          {/* Main */}
+          <section className="min-w-0 flex-1">
+            {/* Mobile Top Bar */}
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.055] bg-[#080809]/85 px-5 py-4 backdrop-blur-2xl lg:hidden"
+            >
+              <div className="flex items-center gap-2.5">
+                <SchoolMark size={32} quiet />
 
-                  {(data?.attention
-                    .criticalCount ??
-                    0) +
-                    (data
-                      ?.attention
-                      .highCount ??
-                      0) >
-                    0 && (
-                    <div className="flex items-center gap-1.5 rounded-full border border-white/[0.05] px-2.5 py-1.5 text-[7px] text-white/24">
-                      <Bell
-                        size={8}
-                      />
-                      {(data
-                        ?.attention
-                        .criticalCount ??
-                        0) +
-                        (data
-                          ?.attention
-                          .highCount ??
-                          0)}{" "}
-                      important
-                    </div>
-                  )}
-                </div>
+                <div>
+                  <p className="text-[12px] font-medium">
+                    {schoolTheme.shortName}
+                  </p>
 
-                <div className="mt-5 space-y-2">
-                  {secondary.length >
-                  0 ? (
-                    secondary.map(
-                      (
-                        item,
-                        index,
-                      ) => (
-                        <AttentionRow
-                          key={
-                            item.key
-                          }
-                          item={
-                            item
-                          }
-                          index={
-                            index
-                          }
-                          onOpen={() =>
-                            router.push(
-                              item.action
-                                .href,
-                            )
-                          }
-                          onDismiss={() =>
-                            void dismissAttention(
-                              item.key,
-                            )
-                          }
-                        />
-                      ),
-                    )
-                  ) : (
-                    <div className="rounded-[17px] border border-white/[0.045] bg-white/[0.008] px-4 py-5">
-                      <p className="text-[11px] text-white/38">
-                        You are clear beyond the primary recommendation.
-                      </p>
-                      <p className="mt-1.5 text-[9px] leading-4 text-white/18">
-                        Home will surface deadlines, weak topics, missed study, and new course intelligence as they become relevant.
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-[12px] text-white/46">
+                    {semesterName}
+                  </p>
                 </div>
               </div>
 
-              <PreparednessCard
-                rows={
-                  data?.preparedness ??
-                  []
-                }
-                onOpen={(
-                  courseId,
-                  topicId,
-                ) =>
-                  router.push(
-                    topicId
-                      ? `/study?course=${courseId}&topics=${topicId}`
-                      : `/study?course=${courseId}`,
-                  )
-                }
-              />
-            </section>
+              <div className="relative">
+                <motion.button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((current) => !current)}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.055] text-[12px] font-semibold text-white/70"
+                  aria-label="Open profile menu"
+                >
+                  {accountInitials}
+                </motion.button>
 
-            <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <CoursesCard
-                courses={
-                  data?.courses ??
-                  []
-                }
-                onOpen={(
-                  id,
-                ) =>
-                  router.push(
-                    `/courses/${id}`,
-                  )
-                }
-                onAdd={() =>
-                  setAddingCourse(
-                    true,
-                  )
-                }
-              />
+                <AccountMenu
+                  open={accountMenuOpen}
+                  name={accountName}
+                  email={accountEmail}
+                  onProfile={() => {
+                    setAccountMenuOpen(false);
+                    window.location.assign("/profile");
+                  }}
+                  onLogout={handleLogout}
+                  loggingOut={loggingOut}
+                  mobile
+                />
+              </div>
+            </motion.div>
 
-              <RecentCard
-                items={
-                  data?.recent ??
-                  []
-                }
-                onOpen={(
-                  href,
-                ) =>
-                  router.push(
-                    href,
-                  )
-                }
-              />
-            </section>
+            <div className="mx-auto max-w-[1480px] px-5 pb-32 pt-8 sm:px-8 md:px-10 md:pb-16 md:pt-7 lg:px-14 xl:px-16">
+              {/* Desktop Utility Bar */}
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  delay: 0.12,
+                  duration: 0.48,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="mb-14 hidden items-center justify-between lg:flex"
+              >
+                <div className="flex items-center gap-2 text-[11px] text-white/44">
+                  <span>{schoolTheme.name}</span>
+                  <span className="text-white/26">/</span>
+                  <span>{semesterName}</span>
 
-            {data?.learning
-              .summary && (
-              <section className="mt-5 flex flex-col gap-4 rounded-[22px] border border-white/[0.05] bg-white/[0.009] p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px]"
-                    style={{
-                      backgroundColor:
-                        `${identity.primary}0F`,
-                      color:
-                        identity.primary,
-                    }}
+                  {formattedTime && (
+                    <>
+                      <span className="text-white/26">/</span>
+                      <span
+                        title={localTimeZone}
+                        className="tabular-nums text-white/40"
+                      >
+                        {formattedTime}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <motion.button
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex h-9 items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3 text-[12px] text-white/40 transition hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-white/70"
                   >
-                    <BrainCircuit
-                      size={13}
+                    <Search size={14} />
+
+                    Search
+
+                    <span className="ml-2 flex items-center gap-[2px] text-[12px] text-white/36">
+                      <Command size={10} />
+                      K
+                    </span>
+                  </motion.button>
+
+                  <div className="relative">
+                    <motion.button
+                      type="button"
+                      onClick={() =>
+                        setAccountMenuOpen((current) => !current)
+                      }
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.055] text-[12px] font-semibold text-white/70"
+                      aria-label="Open profile menu"
+                    >
+                      {accountInitials}
+                    </motion.button>
+
+                    <AccountMenu
+                      open={accountMenuOpen}
+                      name={accountName}
+                      email={accountEmail}
+                      onProfile={() => {
+                        setAccountMenuOpen(false);
+                        window.location.assign("/profile");
+                      }}
+                      onLogout={handleLogout}
+                      loggingOut={loggingOut}
                     />
                   </div>
-                  <div>
-                    <p className="text-[9px] font-medium text-white/44">
-                      Planner is learning your rhythm
-                    </p>
-                    <p className="mt-1 text-[8px] leading-4 text-white/21">
-                      {data.learning
-                        .summary}
-                      .
-                    </p>
+                </div>
+              </motion.div>
+
+              {/* Semester command center */}
+              <motion.section
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08, ...revealTransition }}
+              >
+                <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+                  <div className="max-w-4xl">
+                    <div className="mb-5 flex flex-wrap items-center gap-3">
+                      <motion.div
+                        className="h-[2px] w-10 origin-left rounded-full"
+                        style={{
+                          backgroundColor: schoolTheme.accent,
+                        }}
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
+                        transition={{
+                          delay: 0.3,
+                          duration: 0.65,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      />
+
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+                        style={{ color: schoolTheme.accent }}
+                      >
+                        {formattedDate || "Today"}
+                      </p>
+
+                      <span className="h-1 w-1 rounded-full bg-white/15" />
+
+                      <p className="text-[12px] text-white/46">
+                        {semesterName}
+                      </p>
+
+                    </div>
+
+                    <motion.h1
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        delay: 0.15,
+                        duration: 0.72,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="text-[52px] font-medium leading-[0.96] tracking-[-0.062em] sm:text-[64px] lg:text-[74px]"
+                    >
+                      {greeting}
+                    </motion.h1>
+
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        delay: 0.23,
+                        duration: 0.64,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="mt-5 max-w-2xl text-[16px] leading-7 text-white/54"
+                    >
+                      Keep the semester moving in one direction. Your grades,
+                      deadlines, and GPA goal now meet in the same place.
+                    </motion.p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-6 border-t border-white/[0.065] pt-5 xl:min-w-[390px] xl:border-l xl:border-t-0 xl:pl-7 xl:pt-0">
+                    <Stat
+                      label="Courses"
+                      value={String(courses.length)}
+                    />
+                    <Stat
+                      label="Credits"
+                      value={formatCredits(totalCredits)}
+                    />
+                    <Stat
+                      label="GPA credits"
+                      value={formatCredits(
+                        semesterGpaResult.gradedCredits,
+                      )}
+                    />
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      "/calendar",
-                    )
-                  }
-                  className="flex shrink-0 items-center gap-1.5 text-[8px] font-medium text-white/28 transition hover:text-white/55"
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: 0.2,
+                    duration: 0.7,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  className="relative mt-10 overflow-hidden rounded-[32px] border border-white/[0.075] bg-[#101012]"
                 >
-                  Open calendar
-                  <ChevronRight
-                    size={9}
+                  <div
+                    className="pointer-events-none absolute inset-x-0 top-0 h-[260px] opacity-[0.13]"
+                    style={{
+                      background: `radial-gradient(circle at 16% 0%, ${schoolTheme.accent}60 0%, transparent 58%)`,
+                    }}
                   />
-                </button>
-              </section>
-            )}
-          </div>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push("/grades")}
+                    className="group relative block w-full p-6 text-left sm:p-8 lg:p-9"
+                  >
+                    <div className="grid gap-9 lg:grid-cols-[minmax(0,1fr)_230px] lg:items-center">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div
+                            className="flex h-10 w-10 items-center justify-center rounded-[13px]"
+                            style={{
+                              backgroundColor: `${schoolTheme.accent}12`,
+                              color: schoolTheme.accent,
+                            }}
+                          >
+                            <Gauge size={17} />
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/46">
+                              Semester GPA
+                            </p>
+                            <p className="mt-1 text-[12px] text-white/40">
+                              Live from the grades you have entered
+                            </p>
+                          </div>
+
+                          {semesterGpa !== null && (
+                            <span
+                              className="ml-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] sm:ml-auto"
+                              style={{
+                                borderColor: `${schoolTheme.accent}24`,
+                                backgroundColor: `${schoolTheme.accent}08`,
+                                color: schoolTheme.accent,
+                              }}
+                            >
+                              {gpaGoal.reached
+                                ? "Goal reached"
+                                : gpaGoal.gap !== null &&
+                                    gpaGoal.gap <= 0.1
+                                  ? "Within striking distance"
+                                  : gpaGoal.gap !== null &&
+                                      gpaGoal.gap <= 0.25
+                                    ? "Closing in"
+                                    : "Building"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-7 flex flex-wrap items-end gap-x-6 gap-y-4">
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/36">
+                              Current
+                            </p>
+                            <p className="mt-1 text-[76px] font-medium leading-[0.88] tracking-[-0.08em] text-white/94 sm:text-[92px]">
+                              {semesterGpa === null
+                                ? "--"
+                                : semesterGpa.toFixed(2)}
+                            </p>
+                          </div>
+
+                          <div className="pb-3 text-white/30">
+                            <ArrowRight size={22} />
+                          </div>
+
+                          <div className="pb-1">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/36">
+                              Target
+                            </p>
+                            <p
+                              className="mt-1 text-[48px] font-medium leading-none tracking-[-0.065em]"
+                              style={{ color: schoolTheme.accent }}
+                            >
+                              {targetGpa.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-8 max-w-3xl">
+                          <div className="relative h-3 overflow-hidden rounded-full bg-white/[0.055]">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{
+                                width: `${
+                                  semesterGpa === null
+                                    ? 0
+                                    : Math.max(
+                                        3,
+                                        gpaGoal.progress * 100,
+                                      )
+                                }%`,
+                              }}
+                              transition={{
+                                duration: 0.9,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="h-full rounded-full"
+                              style={{
+                                backgroundColor: schoolTheme.accent,
+                              }}
+                            />
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-[13px] font-medium text-white/42">
+                              {semesterGpa === null
+                                ? "Add a few grades and your GPA mission will activate."
+                                : gpaGoal.reached
+                                  ? `You are ${(
+                                      semesterGpa - targetGpa
+                                    ).toFixed(2)} above your target.`
+                                  : `${gpaGoal.gap?.toFixed(
+                                      2,
+                                    )} GPA points remain between you and ${targetGpa.toFixed(
+                                      2,
+                                    )}.`}
+                            </p>
+
+                            <div className="flex items-center gap-2 text-[12px] font-medium text-white/50 transition group-hover:text-white/68">
+                              Open GPA strategy
+                              <ChevronRight
+                                size={13}
+                                className="transition group-hover:translate-x-0.5"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <GoalRing
+                        currentGpa={semesterGpa}
+                        targetGpa={targetGpa}
+                        progress={gpaGoal.progress}
+                        gap={gpaGoal.gap}
+                        reached={gpaGoal.reached}
+                        color={schoolTheme.accent}
+                      />
+                    </div>
+                  </button>
+
+                  {trackedCourseGrades.length > 0 && (
+                    <div className="relative border-t border-white/[0.055] px-5 py-5 sm:px-8 sm:py-6">
+                      <div className="mb-4 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+                            Course pulse
+                          </p>
+                          <p className="mt-1 text-[13px] text-white/44">
+                            The grades currently feeding your GPA.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => router.push("/grades")}
+                          className="hidden items-center gap-1.5 text-[12px] font-medium text-white/44 transition hover:text-white/60 sm:flex"
+                        >
+                          All grades
+                          <ChevronRight size={12} />
+                        </button>
+                      </div>
+
+                      <div className="grid gap-2 lg:grid-cols-2">
+                        {trackedCourseGrades
+                          .slice(0, 4)
+                          .map((course) => (
+                            <button
+                              key={course.id}
+                              type="button"
+                              onClick={() =>
+                                router.push(
+                                  `/courses/${course.id}/grades`,
+                                )
+                              }
+                              className="group/course flex items-center gap-4 rounded-[18px] border border-white/[0.05] bg-white/[0.01] px-4 py-4 text-left transition hover:border-white/[0.09] hover:bg-white/[0.025]"
+                            >
+                              <div
+                                className="h-9 w-1 shrink-0 rounded-full"
+                                style={{
+                                  backgroundColor: course.color,
+                                }}
+                              />
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate text-[13px] font-semibold text-white/66">
+                                    {course.code}
+                                  </p>
+                                  <span className="text-[12px] text-white/40">
+                                    {course.currentPercent?.toFixed(
+                                      1,
+                                    )}
+                                    %
+                                  </span>
+                                </div>
+
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${Math.max(
+                                        3,
+                                        course.levelProgress * 100,
+                                      )}%`,
+                                      backgroundColor: course.color,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="min-w-[82px] text-right">
+                                <p className="text-[20px] font-medium tracking-[-0.04em] text-white/78">
+                                  {course.letterGrade}
+                                </p>
+                                <p className="mt-1 text-[12px] text-white/36">
+                                  {course.nextLetter
+                                    ? `${course.pointsToNextLevel?.toFixed(
+                                        1,
+                                      )} pts to ${course.nextLetter}`
+                                    : "Top level"}
+                                </p>
+                              </div>
+
+                              <ChevronRight
+                                size={13}
+                                className="text-white/12 transition group-hover/course:translate-x-0.5 group-hover/course:text-white/54"
+                              />
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </motion.section>
+
+              {/* School Line */}
+              <div className="relative my-12 h-px bg-white/[0.06]">
+                <motion.div
+                  className="absolute left-0 top-0 h-px"
+                  style={{ backgroundColor: schoolTheme.accent }}
+                  initial={{ width: 0 }}
+                  animate={{ width: 76 }}
+                  transition={{
+                    delay: 0.28,
+                    duration: 0.75,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                />
+              </div>
+
+              {/* Courses */}
+              <motion.section
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  delay: 0.16,
+                  duration: 0.62,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                <div className="mb-6 flex items-end justify-between gap-6">
+                  <div>
+                    <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.16em] text-white/40">
+                      Academic workspace
+                    </p>
+
+                    <h2 className="text-[28px] font-medium tracking-[-0.04em]">
+                      Your courses
+                    </h2>
+                  </div>
+
+                  <motion.button
+                    onClick={() => setShowAddCourse(true)}
+                    whileHover={{ y: -1, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="group flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-medium text-black transition duration-200 hover:bg-white/88"
+                  >
+                    <Plus size={15} />
+                    Add course
+                  </motion.button>
+                </div>
+
+                {loadingCourses ? (
+                  <CoursesLoading />
+                ) : courses.length === 0 ? (
+                  <EmptyCourses
+                    onAdd={() => setShowAddCourse(true)}
+                  />
+                ) : (
+                  <div className="overflow-hidden rounded-[26px] border border-white/[0.07] bg-white/[0.018]">
+                    <AnimatePresence initial={false}>
+                      {courses.map((course, index) => (
+                        <CourseRow
+                          key={course.id}
+                          course={course}
+                          index={index}
+                          onDelete={() =>
+                            deleteCourse(course.id)
+                          }
+                          last={index === courses.length - 1}
+                        />
+                      ))}
+                    </AnimatePresence>
+
+                    <motion.button
+                      onClick={() => setShowAddCourse(true)}
+                      whileHover={{ backgroundColor: "rgba(255,255,255,0.025)" }}
+                      whileTap={{ scale: 0.995 }}
+                      className="flex w-full items-center gap-4 border-t border-white/[0.06] px-5 py-5 text-left text-[13px] text-white/46 transition hover:text-white/60"
+                    >
+                      <motion.div
+                        whileHover={{ rotate: 90 }}
+                        transition={{ duration: 0.22 }}
+                        className="flex h-9 w-9 items-center justify-center rounded-[11px] border border-dashed border-white/[0.12]"
+                      >
+                        <Plus size={15} />
+                      </motion.div>
+
+                      Add another course
+                    </motion.button>
+                  </div>
+                )}
+              </motion.section>
+
+              {/* Lower Content */}
+              <motion.section
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{
+                  duration: 0.65,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="mt-14 grid gap-12 lg:grid-cols-[1.15fr_.85fr]"
+              >
+                {/* Upcoming */}
+                <div>
+                  <div className="mb-6 flex items-end justify-between">
+                    <div>
+                      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.15em] text-white/42">
+                        Schedule
+                      </p>
+
+                      <h2 className="text-[30px] font-medium tracking-[-0.045em] text-white/92">
+                        Coming up
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/calendar")}
+                      className="flex items-center gap-1.5 text-[13px] font-medium text-white/46 transition hover:text-white/76"
+                    >
+                      View calendar
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
+
+                  {upcomingEvents.length === 0 ? (
+                    <motion.div
+                      whileHover={{ x: 2 }}
+                      transition={{ duration: 0.22 }}
+                      className="group border-y border-white/[0.07] py-8"
+                    >
+                      <div className="flex items-start gap-5">
+                        <motion.div
+                          whileHover={{ scale: 1.04 }}
+                          className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]"
+                          style={{
+                            backgroundColor: `${schoolTheme.accent}12`,
+                          }}
+                        >
+                          <CalendarDays
+                            size={18}
+                            style={{
+                              color: schoolTheme.accent,
+                            }}
+                          />
+                        </motion.div>
+
+                        <div>
+                          <p className="text-[16px] font-medium text-white/84">
+                            Your schedule is clear.
+                          </p>
+
+                          <p className="mt-2 max-w-lg text-[14px] leading-6 text-white/50">
+                            Assignments, exams, and course deadlines will surface
+                            here as your semester takes shape.
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <div className="border-y border-white/[0.07]">
+                      {upcomingEvents.slice(0, 4).map(
+                        (event, index) => {
+                          const eventCourse = courseById.get(
+                            event.course_id,
+                          );
+
+                          return (
+                            <button
+                              key={event.id}
+                              type="button"
+                              onClick={() =>
+                                router.push("/calendar")
+                              }
+                              className={`group flex w-full items-center gap-4 py-4.5 text-left transition hover:bg-white/[0.018] ${
+                                index ===
+                                Math.min(
+                                  upcomingEvents.length,
+                                  4,
+                                ) -
+                                  1
+                                  ? ""
+                                  : "border-b border-white/[0.055]"
+                              }`}
+                            >
+                              <div className="w-14 shrink-0">
+                                <p
+                                  className="text-[12px] font-semibold uppercase tracking-[0.09em]"
+                                  style={{
+                                    color:
+                                      eventCourse?.color ??
+                                      schoolTheme.accent,
+                                  }}
+                                >
+                                  {formatEventMonthDay(
+                                    event.start_date,
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {eventCourse && (
+                                    <span className="text-[12px] font-medium text-white/46">
+                                      {eventCourse.code}
+                                    </span>
+                                  )}
+
+                                  <span className="rounded-full border border-white/[0.06] px-2 py-0.5 text-[11px] capitalize text-white/40">
+                                    {event.event_type.replaceAll(
+                                      "_",
+                                      " ",
+                                    )}
+                                  </span>
+                                </div>
+
+                                <p className="mt-1.5 truncate text-[15px] font-medium text-white/76 transition group-hover:text-white/92">
+                                  {event.name}
+                                </p>
+                              </div>
+
+                              <ChevronRight
+                                size={14}
+                                className="shrink-0 text-white/28 transition group-hover:translate-x-0.5 group-hover:text-white/58"
+                              />
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Academic Status */}
+                <div>
+                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.15em] text-white/42">
+                    Academic status
+                  </p>
+
+                  <div className="mb-6 flex items-end justify-between gap-5">
+                    <h2 className="text-[30px] font-medium tracking-[-0.045em] text-white/92">
+                      Semester
+                    </h2>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/grades")}
+                      className="flex items-center gap-1.5 text-[12px] font-medium text-white/42 transition hover:text-white/72"
+                    >
+                      Grade strategy
+                      <ChevronRight size={11} />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push("/grades")}
+                    className="group block w-full border-y border-white/[0.07] py-6 text-left"
+                  >
+                    <div className="flex items-end justify-between gap-6">
+                      <div>
+                        <p className="text-[12px] font-medium text-white/44">
+                          Current GPA
+                        </p>
+
+                        <div className="mt-2 flex items-baseline gap-2.5">
+                          <p className="text-[42px] font-medium leading-none tracking-[-0.055em] text-white/88">
+                            {semesterGpa === null
+                              ? "--"
+                              : semesterGpa.toFixed(2)}
+                          </p>
+
+                          <p className="text-[13px] text-white/44">
+                            of {targetGpa.toFixed(2)} target
+                          </p>
+                        </div>
+                      </div>
+
+                      <ChevronRight
+                        size={14}
+                        className="mb-2 text-white/28 transition group-hover:translate-x-0.5 group-hover:text-white/58"
+                      />
+                    </div>
+
+                    <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${
+                            semesterGpa === null
+                              ? 0
+                              : Math.max(
+                                  3,
+                                  gpaGoal.progress * 100,
+                                )
+                          }%`,
+                          backgroundColor: schoolTheme.accent,
+                        }}
+                      />
+                    </div>
+
+                    <p className="mt-3 text-[12px] font-medium text-white/46">
+                      {semesterGpa === null
+                        ? "Add grades to activate GPA tracking."
+                        : gpaGoal.reached
+                          ? "Your GPA target is currently reached."
+                          : `${gpaGoal.gap?.toFixed(
+                              2,
+                            )} GPA points from your target.`}
+                    </p>
+                  </button>
+
+                  <div>
+                    <SemesterLine
+                      label="Credit load"
+                      value={
+                        totalCredits === 0
+                          ? "Not set"
+                          : `${formatCredits(totalCredits)} credits`
+                      }
+                      muted={totalCredits === 0}
+                    />
+
+                    <SemesterLine
+                      label="GPA credits"
+                      value={
+                        semesterGpaResult.gradedCredits > 0
+                          ? `${formatCredits(
+                              semesterGpaResult.gradedCredits,
+                            )} graded`
+                          : "No graded courses"
+                      }
+                      muted={
+                        semesterGpaResult.gradedCredits === 0
+                      }
+                    />
+
+                    <SemesterLine
+                      label="Term status"
+                      value={
+                        semesterGpa !== null
+                          ? "Tracking"
+                          : "Setup"
+                      }
+                      muted={semesterGpa === null}
+                    />
+                  </div>
+                </div>
+              </motion.section>
+            </div>
+
+            {/* Mobile Nav */}
+            <motion.nav
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: 0.18,
+                duration: 0.5,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-white/[0.06] bg-[#0B0B0D]/94 px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl lg:hidden sm:px-10 md:px-24"
+            >
+              <MobileNavigationItem
+                icon={Home}
+                label="Home"
+                active
+                onClick={() => router.push("/")}
+              />
+
+              <MobileNavigationItem
+                icon={BookOpen}
+                label="Courses"
+                onClick={() => router.push("/courses")}
+              />
+
+              <MobileNavigationItem
+                icon={Sparkles}
+                label="Study"
+                onClick={() => router.push("/study")}
+              />
+
+              <MobileNavigationItem
+                icon={Mic2}
+                label="Lectures"
+                onClick={() => router.push("/lectures")}
+              />
+
+              <MobileNavigationItem
+                icon={CalendarDays}
+                label="Calendar"
+                onClick={() => router.push("/calendar")}
+              />
+
+              <MobileNavigationItem
+                icon={TrendingUp}
+                label="Grades"
+                onClick={() => router.push("/grades")}
+              />
+            </motion.nav>
+          </section>
         </div>
 
-        <MobileNav
-          onOpenCommand={
-            openCommand
-          }
-        />
-
         <AnimatePresence>
-          {addingCourse && (
-            <AddCourseSheet
-              draft={
-                courseDraft
-              }
-              onChange={
-                setCourseDraft
-              }
-              creating={
-                creatingCourse
-              }
-              accent={
-                identity.primary
-              }
-              onClose={() =>
-                setAddingCourse(
-                  false,
-                )
-              }
-              onCreate={() =>
-                void createCourse()
-              }
+          {showAddCourse && (
+            <AddCourseModal
+              semesterName={semesterName}
+              onClose={() => setShowAddCourse(false)}
+              onAdd={addCourse}
             />
           )}
         </AnimatePresence>
       </main>
-    </MotionConfig>
+      </MotionConfig>
+    </SchoolThemeContext.Provider>
   );
 }
 
-function DesktopSidebar({
-  collapsed,
-  accountMenuOpen,
-  accountName,
-  accountEmail,
-  accountInitials,
-  loggingOut,
-  onToggle,
-  onToggleAccount,
-  onSignOut,
-  onOpenCommand,
+function EmptyCourses({
+  onAdd,
 }: {
-  collapsed: boolean;
-  accountMenuOpen: boolean;
-  accountName: string;
-  accountEmail: string;
-  accountInitials: string;
-  loggingOut: boolean;
-  onToggle: () => void;
-  onToggleAccount: () => void;
-  onSignOut: () => void;
-  onOpenCommand: () => void;
+  onAdd: () => void;
 }) {
-  const router =
-    useRouter();
+  const schoolTheme = useSchoolTheme();
 
   return (
-    <aside
-      className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-white/[0.055] bg-[#09090A]/94 py-5 backdrop-blur-xl transition-[width] duration-200 md:flex ${
-        collapsed
-          ? "w-[88px]"
-          : "w-[258px]"
-      }`}
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={revealTransition}
+      className="relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-[#101012]"
     >
-      <div
-        className={`flex items-center px-5 ${
-          collapsed
-            ? "justify-center"
-            : "justify-between"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() =>
-            router.push("/")
-          }
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border border-white/[0.065] bg-white/[0.025] text-white/55"
-        >
-          <SchoolMark
-            size={28}
-            quiet
-          />
-        </button>
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute right-[-80px] top-[-120px] h-[320px] w-[320px] rounded-full opacity-[0.11] blur-[90px]"
+        style={{ backgroundColor: schoolTheme.accent }}
+        animate={{
+          x: [0, -12, 8, 0],
+          y: [0, 10, -6, 0],
+        }}
+        transition={{
+          duration: 18,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
 
-        {!collapsed && (
-          <div className="ml-3 min-w-0 flex-1">
-            <p className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-white/30">
-              Academic OS
-            </p>
-            <p className="mt-1 text-[7px] text-white/14">
-              Your semester, connected.
+      <div className="grid min-h-[330px] lg:grid-cols-[1.05fr_.95fr]">
+        <div className="relative flex flex-col justify-between p-7 sm:p-9">
+          <div>
+            <motion.div
+              whileHover={{ scale: 1.05, rotate: -2 }}
+              className="mb-8 flex h-10 w-10 items-center justify-center rounded-[13px]"
+              style={{
+                backgroundColor: `${schoolTheme.accent}10`,
+                color: schoolTheme.accent,
+              }}
+            >
+              <LibraryBig size={18} />
+            </motion.div>
+
+            <h3 className="max-w-sm text-[26px] font-medium leading-tight tracking-[-0.04em]">
+              Build your semester.
+            </h3>
+
+            <p className="mt-3 max-w-md text-[13px] leading-6 text-white/48">
+              Add your courses first. Materials, grades, study guides, and
+              everything else will organize around them.
             </p>
           </div>
-        )}
 
-        {!collapsed && (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/15 transition hover:bg-white/[0.025] hover:text-white/40"
-            aria-label="Collapse sidebar"
+          <motion.button
+            onClick={onAdd}
+            whileHover={{ x: 3 }}
+            whileTap={{ scale: 0.98 }}
+            className="mt-9 flex w-fit items-center gap-2 text-[12px] font-medium text-white/65 transition hover:text-white"
           >
-            <PanelLeftClose
-              size={12}
-            />
-          </button>
-        )}
+            Add your first course
+            <ArrowRight size={14} />
+          </motion.button>
+        </div>
+
+        <div className="relative hidden overflow-hidden border-l border-white/[0.055] lg:block">
+          <motion.div
+            aria-hidden
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none text-[180px] font-semibold tracking-[-0.08em]"
+            style={{
+              color: `${schoolTheme.accent}0D`,
+            }}
+            animate={{
+              scale: [1, 1.025, 1],
+              opacity: [0.75, 1, 0.75],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            {schoolTheme.initial}
+          </motion.div>
+
+          <div className="absolute inset-x-10 top-1/2 h-px bg-white/[0.055]" />
+
+          <div className="absolute bottom-10 left-1/2 top-10 w-px bg-white/[0.045]" />
+
+          <motion.div
+            aria-hidden
+            className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ backgroundColor: schoolTheme.accent }}
+            animate={{
+              boxShadow: [
+                `0 0 0 0 ${schoolTheme.accent}00`,
+                `0 0 0 10px ${schoolTheme.accent}10`,
+                `0 0 0 0 ${schoolTheme.accent}00`,
+              ],
+            }}
+            transition={{
+              duration: 3.4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+
+          <div className="absolute bottom-8 right-8 text-right">
+            <p className="text-[12px] uppercase tracking-[0.16em] text-white/34">
+              Current institution
+            </p>
+
+            <p className="mt-1.5 text-[12px] text-white/44">
+              {schoolTheme.name}
+            </p>
+          </div>
+        </div>
       </div>
+    </motion.div>
+  );
+}
 
-      {collapsed && (
-        <button
-          type="button"
-          onClick={onToggle}
-          className="mx-auto mt-4 flex h-8 w-8 items-center justify-center rounded-full text-white/12 transition hover:bg-white/[0.025] hover:text-white/38"
-          aria-label="Expand sidebar"
-        >
-          <PanelLeftOpen
-            size={11}
-          />
-        </button>
-      )}
+function CourseRow({
+  course,
+  onDelete,
+  last,
+  index,
+}: {
+  course: Course;
+  onDelete: () => void;
+  last: boolean;
+  index: number;
+}) {
+  const [showMenu, setShowMenu] = useState(false);
 
-      <nav
-        className={`mt-6 flex flex-1 flex-col gap-1.5 ${
-          collapsed
-            ? "items-center"
-            : "px-3"
-        }`}
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        transition: {
+          delay: Math.min(index * 0.055, 0.28),
+          duration: 0.46,
+          ease: [0.22, 1, 0.36, 1],
+        },
+      }}
+      exit={{
+        opacity: 0,
+        y: -8,
+        transition: {
+          duration: 0.2,
+          ease: [0.4, 0, 1, 1],
+        },
+      }}
+      className={`group relative ${
+        last ? "" : "border-b border-white/[0.055]"
+      }`}
+    >
+      <Link
+        href={`/courses/${course.id}`}
+        className="grid grid-cols-[44px_1fr] items-center gap-4 px-5 py-5 pr-14 transition duration-200 hover:bg-white/[0.03] sm:grid-cols-[52px_1fr_auto] sm:gap-5"
       >
-        {NAV.map(
-          (item) => {
-            const Icon =
-              item.icon;
-
-            const active =
-              item.href ===
-              "/";
-
-            return (
-              <button
-                key={
-                  item.label
-                }
-                type="button"
-                onClick={() =>
-                  router.push(
-                    item.href,
-                  )
-                }
-                title={
-                  collapsed
-                    ? item.label
-                    : undefined
-                }
-                className={`flex h-11 items-center rounded-[13px] border transition ${
-                  collapsed
-                    ? "w-11 justify-center"
-                    : "w-full gap-3 px-3.5"
-                } ${
-                  active
-                    ? "border-white/[0.09] bg-white/[0.045] text-white/68"
-                    : "border-transparent text-white/24 hover:border-white/[0.055] hover:bg-white/[0.02] hover:text-white/55"
-                }`}
-              >
-                <Icon
-                  size={15}
-                  className="shrink-0"
-                />
-
-                {!collapsed && (
-                  <span className="text-[9px] font-medium">
-                    {item.label}
-                  </span>
-                )}
-              </button>
-            );
-          },
-        )}
-
-        <button
-          type="button"
-          onClick={
-            onOpenCommand
-          }
-          title={
-            collapsed
-              ? "Command Center"
-              : undefined
-          }
-          className={`mt-2 flex h-11 items-center rounded-[13px] border border-white/[0.045] bg-white/[0.008] text-white/25 transition hover:border-white/[0.075] hover:bg-white/[0.02] hover:text-white/52 ${
-            collapsed
-              ? "w-11 justify-center"
-              : "w-full gap-3 px-3.5"
-          }`}
+        <motion.div
+          whileHover={{ scale: 1.045, rotate: -1 }}
+          transition={{ type: "spring", stiffness: 320, damping: 24 }}
+          className="flex h-11 w-11 items-center justify-center rounded-[14px] text-[13px] font-semibold text-black"
+          style={{ backgroundColor: course.color }}
         >
-          <Command
-            size={14}
-            className="shrink-0"
-          />
+          {course.code.charAt(0)}
+        </motion.div>
 
-          {!collapsed && (
-            <>
-              <span className="text-[9px] font-medium">
-                Command Center
-              </span>
-              <span className="ml-auto text-[7px] text-white/12">
-                ⌘K
-              </span>
-            </>
-          )}
-        </button>
-      </nav>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.13em] text-white/27">
+              {course.code}
+            </p>
 
-      <div
-        className={`relative ${
-          collapsed
-            ? "px-5"
-            : "px-3"
-        }`}
-      >
+            <span className="h-[2px] w-[2px] rounded-full bg-white/20" />
+
+            <p className="text-[12px] text-white/40">
+              {formatCredits(course.credits)}{" "}
+              {course.credits === 1 ? "credit" : "credits"}
+            </p>
+          </div>
+
+          <h3 className="mt-1.5 truncate text-[16px] font-medium tracking-[-0.02em] text-white/88 transition group-hover:text-white">
+            {course.name}
+          </h3>
+
+          <p className="mt-1 truncate text-[12px] text-white/27">
+            {course.professor || "Professor not added"}
+          </p>
+        </div>
+
+        <div className="hidden items-center gap-1.5 text-[11px] text-white/32 transition duration-200 group-hover:translate-x-[2px] group-hover:text-white/48 sm:flex">
+          View course
+          <ChevronRight size={13} />
+        </div>
+      </Link>
+
+      <div className="absolute right-4 top-1/2 z-20 -translate-y-1/2">
+        <motion.button
+          type="button"
+          onClick={() =>
+            setShowMenu((current) => !current)
+          }
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.94 }}
+          aria-label={`Options for ${course.code}`}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white/36 transition hover:bg-white/[0.065] hover:text-white/65"
+        >
+          <MoreHorizontal size={17} />
+        </motion.button>
+
         <AnimatePresence>
-          {accountMenuOpen && (
+          {showMenu && (
             <motion.div
-              initial={{
-                opacity: 0,
-                y: 6,
-                scale: 0.98,
+              initial={{ opacity: 0, y: -5, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              transition={{
+                duration: 0.18,
+                ease: [0.22, 1, 0.36, 1],
               }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                scale: 1,
-              }}
-              exit={{
-                opacity: 0,
-                y: 4,
-              }}
-              className={`absolute bottom-[54px] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#121214] p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] ${
-                collapsed
-                  ? "left-[70px] w-[230px]"
-                  : "inset-x-3"
-              }`}
+              className="absolute right-0 top-10 z-30 w-40 overflow-hidden rounded-[14px] border border-white/[0.08] bg-[#1A1A1D]/98 p-1.5 shadow-2xl backdrop-blur-2xl"
             >
-              <div className="px-3 py-2">
-                <p className="truncate text-[9px] font-medium text-white/50">
-                  {accountName}
-                </p>
-                <p className="mt-1 truncate text-[7px] text-white/17">
-                  {accountEmail}
-                </p>
-              </div>
-
-              <div className="my-1 h-px bg-white/[0.045]" />
-
               <button
                 type="button"
-                onClick={onSignOut}
-                disabled={
-                  loggingOut
-                }
-                className="flex w-full items-center gap-2 rounded-[11px] px-3 py-2.5 text-[8px] text-white/25 transition hover:bg-white/[0.025] hover:text-white/52 disabled:opacity-40"
+                onClick={() => {
+                  setShowMenu(false);
+                  onDelete();
+                }}
+                className="w-full rounded-[9px] px-3 py-2 text-left text-[12px] text-red-400 transition hover:bg-red-500/10"
               >
-                {loggingOut ? (
-                  <Loader2
-                    size={10}
-                    className="animate-spin"
-                  />
-                ) : (
-                  <LogOut
-                    size={10}
-                  />
-                )}
-                Sign out
+                Delete course
               </button>
             </motion.div>
           )}
         </AnimatePresence>
-
-        <button
-          type="button"
-          onClick={
-            onToggleAccount
-          }
-          title={
-            collapsed
-              ? accountName
-              : undefined
-          }
-          className={`flex h-11 items-center rounded-[13px] border border-white/[0.045] bg-white/[0.01] transition hover:border-white/[0.07] hover:bg-white/[0.025] ${
-            collapsed
-              ? "w-11 justify-center"
-              : "w-full gap-3 px-2.5"
-          }`}
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-white/[0.045] text-[8px] font-semibold text-white/42">
-            {accountInitials}
-          </span>
-
-          {!collapsed && (
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-[8px] font-medium text-white/35">
-                {accountName}
-              </p>
-              <p className="mt-0.5 truncate text-[7px] text-white/12">
-                Account
-              </p>
-            </div>
-          )}
-
-          {!collapsed && (
-            <UserRound
-              size={10}
-              className="shrink-0 text-white/12"
-            />
-          )}
-        </button>
       </div>
-    </aside>
+    </motion.div>
   );
 }
 
-function MobileNav({
-  onOpenCommand,
-}: {
-  onOpenCommand: () => void;
-}) {
-  const router =
-    useRouter();
-
-  return (
-    <nav className="fixed inset-x-3 bottom-3 z-50 flex items-center justify-around rounded-[19px] border border-white/[0.085] bg-[#111113]/95 px-2 py-2 shadow-[0_20px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:hidden">
-      {NAV.map(
-        (item) => {
-          const Icon =
-            item.icon;
-
-          return (
-            <button
-              key={
-                item.label
-              }
-              type="button"
-              onClick={() =>
-                router.push(
-                  item.href,
-                )
-              }
-              className={`flex h-10 w-10 items-center justify-center rounded-[12px] ${
-                item.href ===
-                "/"
-                  ? "bg-white/[0.055] text-white/66"
-                  : "text-white/27"
-              }`}
-              aria-label={
-                item.label
-              }
-            >
-              <Icon
-                size={15}
-              />
-            </button>
-          );
-        },
-      )}
-
-    </nav>
-  );
-}
-
-function PrimaryRecommendation({
-  item,
-  accent,
-  onOpen,
-  onSnooze,
-}: {
-  item: AttentionItem | null;
-  accent: string;
-  onOpen: (href: string) => void;
-  onSnooze?: () => void;
-}) {
-  if (!item) {
-    return (
-      <div className="relative overflow-hidden rounded-[28px] border border-white/[0.07] bg-[#101012] p-6 sm:p-8">
-        <div
-          aria-hidden
-          className="absolute right-[-80px] top-[-100px] h-[280px] w-[280px] rounded-full opacity-[0.08] blur-[85px]"
-          style={{
-            backgroundColor:
-              accent,
-          }}
-        />
-        <CheckCircle2
-          size={18}
-          style={{
-            color:
-              accent,
-          }}
-        />
-        <p className="mt-6 text-[9px] font-semibold uppercase tracking-[0.15em] text-white/22">
-          You are clear
-        </p>
-        <h2 className="mt-2 max-w-2xl text-[31px] font-medium leading-[1.04] tracking-[-0.045em]">
-          Nothing urgent is asking for you.
-        </h2>
-        <p className="mt-4 max-w-xl text-[11px] leading-5 text-white/29">
-          Use the breathing room for a weak topic, a recent lecture, or something ahead of schedule.
-        </p>
-      </div>
-    );
-  }
-
-  const color =
-    item.color ||
-    accent;
-
-  return (
-    <div className="relative overflow-hidden rounded-[28px] border border-white/[0.075] bg-[#101012] p-6 sm:p-8">
-      <div
-        aria-hidden
-        className="absolute right-[-70px] top-[-120px] h-[330px] w-[330px] rounded-full opacity-[0.12] blur-[100px]"
-        style={{
-          backgroundColor:
-            color,
-        }}
-      />
-
-      <div className="relative">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Sparkles
-              size={12}
-              style={{
-                color,
-              }}
-            />
-            <p
-              className="text-[8px] font-semibold uppercase tracking-[0.16em]"
-              style={{
-                color,
-              }}
-            >
-              Recommended next
-            </p>
-          </div>
-
-          <span className="rounded-full border border-white/[0.055] bg-black/10 px-2.5 py-1.5 text-[7px] text-white/24">
-            {urgencyLabel(
-              item.urgency,
-            )}
-          </span>
-        </div>
-
-        <h2 className="mt-7 max-w-3xl text-[34px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[42px]">
-          {item.title}
-        </h2>
-
-        <p className="mt-4 max-w-2xl text-[12px] leading-6 text-white/37">
-          {item.detail}
-        </p>
-
-        {item.preparedness !==
-          null && (
-          <div className="mt-5 flex items-center gap-3">
-            <div className="h-1.5 w-32 overflow-hidden rounded-full bg-white/[0.055]">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width:
-                    `${Math.max(
-                      2,
-                      Math.min(
-                        100,
-                        item.preparedness,
-                      ),
-                    )}%`,
-                  backgroundColor:
-                    color,
-                }}
-              />
-            </div>
-            <p className="text-[8px] tabular-nums text-white/25">
-              {Math.round(
-                item.preparedness,
-              )}
-              % preparedness
-            </p>
-          </div>
-        )}
-
-        <div className="mt-7 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              onOpen(
-                item.action
-                  .href,
-              )
-            }
-            className="flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[9px] font-medium text-black transition hover:bg-white/90"
-          >
-            {item.action
-              .label}
-            <ArrowRight
-              size={10}
-            />
-          </button>
-
-          {item.secondaryAction && (
-            <button
-              type="button"
-              onClick={() =>
-                onOpen(
-                  item
-                    .secondaryAction!
-                    .href,
-                )
-              }
-              className="rounded-full border border-white/[0.06] px-4 py-2.5 text-[9px] text-white/35 transition hover:bg-white/[0.025] hover:text-white/58"
-            >
-              {
-                item
-                  .secondaryAction
-                  .label
-              }
-            </button>
-          )}
-
-          {onSnooze && (
-            <button
-              type="button"
-              onClick={
-                onSnooze
-              }
-              className="ml-auto text-[8px] text-white/18 transition hover:text-white/42"
-            >
-              Remind me tomorrow
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TodayCard({
-  items,
-  onOpen,
-}: {
-  items: HomeData["schedule"];
-  onOpen: () => void;
-}) {
-  return (
-    <div className="rounded-[28px] border border-white/[0.06] bg-[#101012] p-5 sm:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/22">
-            Today
-          </p>
-          <h2 className="mt-2 text-[22px] font-medium tracking-[-0.035em]">
-            What is ahead.
-          </h2>
-        </div>
-
-        <button
-          type="button"
-          onClick={
-            onOpen
-          }
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.05] text-white/22 transition hover:bg-white/[0.025] hover:text-white/48"
-        >
-          <CalendarDays
-            size={11}
-          />
-        </button>
-      </div>
-
-      <div className="mt-5">
-        {items.length >
-        0 ? (
-          items.map(
-            (
-              item,
-              index,
-            ) => (
-              <div
-                key={
-                  item.id
-                }
-                className={`flex gap-3 py-3 ${
-                  index >
-                  0
-                    ? "border-t border-white/[0.04]"
-                    : ""
-                }`}
-              >
-                <div className="w-[50px] shrink-0 pt-0.5 text-[8px] tabular-nums text-white/24">
-                  {timeText(
-                    item.startsAt,
-                  )}
-                </div>
-
-                <div
-                  className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{
-                    backgroundColor:
-                      item.color ||
-                      "rgba(255,255,255,.24)",
-                  }}
-                />
-
-                <div className="min-w-0">
-                  <p className="truncate text-[10px] font-medium text-white/48">
-                    {
-                      item.title
-                    }
-                  </p>
-                  <p className="mt-1 truncate text-[8px] text-white/18">
-                    {item.courseCode
-                      ? `${item.courseCode} · `
-                      : ""}
-                    {item.location ||
-                      item.itemType}
-                  </p>
-                </div>
-              </div>
-            ),
-          )
-        ) : (
-          <div className="rounded-[16px] border border-white/[0.045] bg-white/[0.008] px-4 py-5">
-            <p className="text-[10px] text-white/34">
-              No calendar items remaining today.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={
-          onOpen
-        }
-        className="mt-4 flex items-center gap-1.5 text-[8px] font-medium text-white/22 transition hover:text-white/50"
-      >
-        Full calendar
-        <ChevronRight
-          size={8}
-        />
-      </button>
-    </div>
-  );
-}
-
-function AttentionRow({
-  item,
-  index,
-  onOpen,
-  onDismiss,
-}: {
-  item: AttentionItem;
-  index: number;
-  onOpen: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div className="group flex items-start gap-3 rounded-[17px] border border-white/[0.045] bg-white/[0.008] p-4 transition hover:border-white/[0.075] hover:bg-white/[0.014]">
-      <span className="w-5 shrink-0 pt-0.5 text-[8px] font-medium text-white/16">
-        {String(
-          index + 1,
-        ).padStart(
-          2,
-          "0",
-        )}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <button
-          type="button"
-          onClick={
-            onOpen
-          }
-          className="block w-full text-left"
-        >
-          <p className="text-[10px] font-medium text-white/48">
-            {item.title}
-          </p>
-          <p className="mt-1.5 line-clamp-2 text-[8px] leading-4 text-white/21">
-            {item.detail}
-          </p>
-        </button>
-      </div>
-
-      <button
-        type="button"
-        onClick={
-          onDismiss
-        }
-        className="opacity-0 text-[7px] text-white/14 transition group-hover:opacity-100 hover:text-white/40"
-      >
-        Dismiss
-      </button>
-    </div>
-  );
-}
-
-function PreparednessCard({
-  rows,
-  onOpen,
-}: {
-  rows: HomeData["preparedness"];
-  onOpen: (
-    courseId: string,
-    topicId?: string,
-  ) => void;
-}) {
-  const ranked =
-    [...rows].sort(
-      (a, b) =>
-        (
-          a.preparedness ??
-          101
-        ) -
-        (
-          b.preparedness ??
-          101
-        ),
-    );
-
-  return (
-    <div className="rounded-[24px] border border-white/[0.06] bg-[#101012] p-5 sm:p-6">
-      <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/22">
-        Preparedness
-      </p>
-      <h2 className="mt-2 text-[23px] font-medium tracking-[-0.035em]">
-        Where you stand.
-      </h2>
-
-      <div className="mt-5 space-y-4">
-        {ranked.length >
-        0 ? (
-          ranked.map(
-            (row) => (
-              <div
-                key={
-                  row.courseId
-                }
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpen(
-                      row.courseId,
-                    )
-                  }
-                  className="flex w-full items-center justify-between gap-4 text-left"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor:
-                          row.color,
-                      }}
-                    />
-                    <p className="truncate text-[9px] font-medium text-white/42">
-                      {
-                        row.courseCode
-                      }
-                    </p>
-                  </div>
-                  <p className="text-[9px] tabular-nums text-white/31">
-                    {row.preparedness ===
-                    null
-                      ? "No data"
-                      : `${row.preparedness}%`}
-                  </p>
-                </button>
-
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.045]">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width:
-                        `${Math.max(
-                          1,
-                          row.preparedness ??
-                            0,
-                        )}%`,
-                      backgroundColor:
-                        row.color,
-                      opacity:
-                        0.75,
-                    }}
-                  />
-                </div>
-
-                {row.weakest[0] && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onOpen(
-                        row.courseId,
-                        row.weakest[0]
-                          .id,
-                      )
-                    }
-                    className="mt-2 text-[7px] text-white/17 transition hover:text-white/40"
-                  >
-                    Weakest:{" "}
-                    {
-                      row
-                        .weakest[0]
-                        .name
-                    }{" "}
-                    ·{" "}
-                    {
-                      row
-                        .weakest[0]
-                        .mastery
-                    }
-                    %
-                  </button>
-                )}
-              </div>
-            ),
-          )
-        ) : (
-          <p className="text-[9px] text-white/22">
-            Study activity will build your preparedness picture here.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CoursesCard({
-  courses,
-  onOpen,
+function AddCourseModal({
+  semesterName,
+  onClose,
   onAdd,
 }: {
-  courses: HomeData["courses"];
-  onOpen: (id: string) => void;
-  onAdd: () => void;
-}) {
-  return (
-    <div className="rounded-[24px] border border-white/[0.06] bg-[#101012] p-5 sm:p-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/22">
-            Courses
-          </p>
-          <h2 className="mt-2 text-[23px] font-medium tracking-[-0.035em]">
-            Your semester.
-          </h2>
-        </div>
-
-        <button
-          type="button"
-          onClick={
-            onAdd
-          }
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.055] text-white/22 transition hover:bg-white/[0.03] hover:text-white/48"
-        >
-          <Plus
-            size={11}
-          />
-        </button>
-      </div>
-
-      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        {courses.map(
-          (course) => (
-            <button
-              key={
-                course.id
-              }
-              type="button"
-              onClick={() =>
-                onOpen(
-                  course.id,
-                )
-              }
-              className="group rounded-[17px] border border-white/[0.045] bg-white/[0.007] p-4 text-left transition hover:border-white/[0.08] hover:bg-white/[0.014]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span
-                  className="text-[9px] font-semibold"
-                  style={{
-                    color:
-                      course.color,
-                  }}
-                >
-                  {
-                    course.code
-                  }
-                </span>
-                <ChevronRight
-                  size={9}
-                  className="text-white/12 transition group-hover:text-white/34"
-                />
-              </div>
-              <p className="mt-2 line-clamp-1 text-[11px] font-medium text-white/44">
-                {course.name}
-              </p>
-              <p className="mt-2 text-[7px] text-white/16">
-                {course.professor ||
-                  `${course.credits} credits`}
-              </p>
-            </button>
-          ),
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentCard({
-  items,
-  onOpen,
-}: {
-  items: HomeData["recent"];
-  onOpen: (href: string) => void;
-}) {
-  return (
-    <div className="rounded-[24px] border border-white/[0.06] bg-[#101012] p-5">
-      <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/22">
-        Recent
-      </p>
-      <h2 className="mt-2 text-[22px] font-medium tracking-[-0.035em]">
-        Pick up where you left off.
-      </h2>
-
-      <div className="mt-4">
-        {items.length >
-        0 ? (
-          items.slice(
-            0,
-            5,
-          ).map(
-            (
-              item,
-              index,
-            ) => {
-              const Icon =
-                recentIcon(
-                  item.kind,
-                );
-
-              return (
-                <button
-                  key={`${item.kind}:${item.id}`}
-                  type="button"
-                  onClick={() =>
-                    onOpen(
-                      item.href,
-                    )
-                  }
-                  className={`flex w-full items-center gap-3 py-3 text-left ${
-                    index >
-                    0
-                      ? "border-t border-white/[0.04]"
-                      : ""
-                  }`}
-                >
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-white/[0.025]"
-                    style={{
-                      color:
-                        item.color ||
-                        "rgba(255,255,255,.3)",
-                    }}
-                  >
-                    <Icon
-                      size={11}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[9px] font-medium text-white/40">
-                      {
-                        item.title
-                      }
-                    </p>
-                    <p className="mt-1 text-[7px] text-white/15">
-                      {item.courseCode
-                        ? `${item.courseCode} · `
-                        : ""}
-                      {relativeTime(
-                        item.at,
-                      )}
-                    </p>
-                  </div>
-                </button>
-              );
-            },
-          )
-        ) : (
-          <p className="mt-5 text-[9px] text-white/20">
-            Your recent notes, lectures, and study guides will collect here.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AddCourseSheet({
-  draft,
-  onChange,
-  creating,
-  accent,
-  onClose,
-  onCreate,
-}: {
-  draft: {
-    code: string;
-    name: string;
-    professor: string;
-    credits: string;
-  };
-  onChange: (
-    next: {
-      code: string;
-      name: string;
-      professor: string;
-      credits: string;
-    },
-  ) => void;
-  creating: boolean;
-  accent: string;
+  semesterName: string;
   onClose: () => void;
-  onCreate: () => void;
+  onAdd: (course: Omit<Course, "id">) => void;
 }) {
+  const schoolTheme = useSchoolTheme();
+  const courseColors = useMemo(
+    () => buildThemePalette(
+      schoolTheme.brandColors,
+      schoolTheme.accent,
+      schoolTheme.accentDark,
+    ),
+    [schoolTheme],
+  );
+
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [professor, setProfessor] = useState("");
+  const [credits, setCredits] = useState("");
+  const [color, setColor] = useState(schoolTheme.accent);
+
+  const parsedCredits = Number(credits);
+
+  const validCredits =
+    credits.trim().length > 0 &&
+    Number.isFinite(parsedCredits) &&
+    parsedCredits > 0;
+
+  const canSave =
+    code.trim().length > 0 &&
+    name.trim().length > 0 &&
+    validCredits;
+
+  function saveCourse() {
+    if (!canSave) return;
+
+    onAdd({
+      code: code.trim().toUpperCase(),
+      name: name.trim(),
+      professor: professor.trim(),
+      credits: parsedCredits,
+      color,
+    });
+  }
+
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-      }}
-      animate={{
-        opacity: 1,
-      }}
-      exit={{
-        opacity: 0,
-      }}
-      className="fixed inset-0 z-[260] flex items-end justify-center bg-black/68 backdrop-blur-lg sm:items-center sm:p-6"
-      onMouseDown={(
-        event,
-      ) => {
-        if (
-          event.target ===
-          event.currentTarget
-        ) {
-          onClose();
-        }
-      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/65 backdrop-blur-md sm:items-center sm:p-6"
     >
       <motion.div
         initial={{
-          y: 20,
           opacity: 0,
+          y: 24,
+          scale: 0.985,
         }}
         animate={{
-          y: 0,
           opacity: 1,
+          y: 0,
+          scale: 1,
         }}
         exit={{
-          y: 15,
           opacity: 0,
+          y: 16,
+          scale: 0.99,
         }}
-        className="w-full border-t border-white/[0.08] bg-[#111113] p-6 sm:max-w-[520px] sm:rounded-[24px] sm:border"
+        transition={{
+          duration: 0.42,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="relative w-full overflow-hidden border-t border-white/[0.09] bg-[#121214] shadow-[0_-30px_100px_rgba(0,0,0,0.55)] sm:max-w-[560px] sm:rounded-[28px] sm:border"
       >
-        <p
-          className="text-[8px] font-semibold uppercase tracking-[0.15em]"
+        <motion.div
+          className="absolute left-0 top-0 h-[2px] w-full origin-center"
           style={{
-            color:
-              accent,
+            background: `linear-gradient(90deg, transparent, ${schoolTheme.accent}, transparent)`,
           }}
-        >
-          New course
-        </p>
-        <h2 className="mt-2 text-[26px] font-medium tracking-[-0.04em]">
-          Add it once.
-        </h2>
-        <p className="mt-2 text-[9px] leading-4 text-white/23">
-          Everything else, topics, materials, study, lectures, grades, and calendar intelligence, grows from this course.
-        </p>
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={{ scaleX: 1, opacity: 1 }}
+          transition={{
+            delay: 0.12,
+            duration: 0.55,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        />
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <input
-            value={
-              draft.code
-            }
-            onChange={(
-              event,
-            ) =>
-              onChange({
-                ...draft,
-                code:
-                  event.target
-                    .value,
-              })
-            }
-            placeholder="PHYS 211"
-            className="rounded-[14px] border border-white/[0.06] bg-black/20 px-4 py-3 text-[10px] text-white/55 outline-none placeholder:text-white/16 focus:border-white/[0.11]"
-          />
+        <div className="p-6 sm:p-8">
+          <div className="mb-8 flex items-start justify-between gap-5">
+            <div>
+              <div className="mb-4 flex items-center gap-2">
+                <motion.div
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    backgroundColor: schoolTheme.accent,
+                  }}
+                  animate={{
+                    opacity: [0.55, 1, 0.55],
+                  }}
+                  transition={{
+                    duration: 2.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
 
-          <input
-            value={
-              draft.credits
-            }
-            onChange={(
-              event,
-            ) =>
-              onChange({
-                ...draft,
-                credits:
-                  event.target
-                    .value,
-              })
-            }
-            inputMode="decimal"
-            placeholder="3 credits"
-            className="rounded-[14px] border border-white/[0.06] bg-black/20 px-4 py-3 text-[10px] text-white/55 outline-none placeholder:text-white/16 focus:border-white/[0.11]"
-          />
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                  style={{
+                    color: schoolTheme.accent,
+                  }}
+                >
+                  {schoolTheme.shortName} · {semesterName}
+                </p>
+              </div>
 
-          <input
-            value={
-              draft.name
-            }
-            onChange={(
-              event,
-            ) =>
-              onChange({
-                ...draft,
-                name:
-                  event.target
-                    .value,
-              })
-            }
-            placeholder="University Physics"
-            className="sm:col-span-2 rounded-[14px] border border-white/[0.06] bg-black/20 px-4 py-3 text-[10px] text-white/55 outline-none placeholder:text-white/16 focus:border-white/[0.11]"
-          />
+              <h2 className="text-[28px] font-medium tracking-[-0.045em]">
+                Add a course
+              </h2>
 
-          <input
-            value={
-              draft.professor
-            }
-            onChange={(
-              event,
-            ) =>
-              onChange({
-                ...draft,
-                professor:
-                  event.target
-                    .value,
-              })
-            }
-            placeholder="Professor, optional"
-            className="sm:col-span-2 rounded-[14px] border border-white/[0.06] bg-black/20 px-4 py-3 text-[10px] text-white/55 outline-none placeholder:text-white/16 focus:border-white/[0.11]"
-          />
-        </div>
+              <p className="mt-2 text-[13px] leading-5 text-white/46">
+                Start with the basics. Everything else can be added later.
+              </p>
+            </div>
 
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={
-              onClose
-            }
-            className="rounded-full px-4 py-2.5 text-[9px] text-white/28 transition hover:text-white/50"
-          >
-            Cancel
-          </button>
+            <motion.button
+              onClick={onClose}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.94 }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.055] text-white/50 transition hover:bg-white/[0.09] hover:text-white/70"
+            >
+              <X size={15} />
+            </motion.button>
+          </div>
 
-          <button
-            type="button"
-            disabled={
-              creating
-            }
-            onClick={
-              onCreate
-            }
-            className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[9px] font-medium text-black disabled:opacity-40"
-          >
-            {creating ? (
-              <Loader2
-                size={9}
-                className="animate-spin"
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-[1fr_125px]">
+              <FormField label="Course code">
+                <input
+                  value={code}
+                  onChange={(event) =>
+                    setCode(event.target.value)
+                  }
+                  placeholder="PHYS 211"
+                  autoFocus
+                  className={inputClass}
+                />
+              </FormField>
+
+              <FormField label="Credits">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.5"
+                  value={credits}
+                  onChange={(event) =>
+                    setCredits(event.target.value)
+                  }
+                  placeholder="3.5"
+                  className={inputClass}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Course name">
+              <input
+                value={name}
+                onChange={(event) =>
+                  setName(event.target.value)
+                }
+                placeholder="University Physics: Mechanics"
+                className={inputClass}
               />
-            ) : (
-              <GraduationCap
-                size={9}
+            </FormField>
+
+            <FormField label="Professor">
+              <input
+                value={professor}
+                onChange={(event) =>
+                  setProfessor(event.target.value)
+                }
+                placeholder="Optional"
+                className={inputClass}
               />
-            )}
-            Create course
-          </button>
+            </FormField>
+
+            <FormField label="Course marker">
+              <div className="flex flex-wrap gap-3 pt-1">
+                {courseColors.map((courseColor) => (
+                  <motion.button
+                    key={courseColor}
+                    type="button"
+                    onClick={() =>
+                      setColor(courseColor)
+                    }
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.94 }}
+                    className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+                      color === courseColor
+                        ? "scale-110 ring-1 ring-white/55 ring-offset-[3px] ring-offset-[#121214]"
+                        : "opacity-70 hover:opacity-100"
+                    }`}
+                    style={{
+                      backgroundColor: courseColor,
+                    }}
+                  >
+                    <AnimatePresence>
+                      {color === courseColor && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 420,
+                            damping: 24,
+                          }}
+                          className="h-[6px] w-[6px] rounded-full bg-black/65"
+                        />
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                ))}
+              </div>
+            </FormField>
+          </div>
+
+          <div className="mt-9 flex items-center justify-between gap-4">
+            <p className="hidden text-[12px] text-white/32 sm:block">
+              You can edit these details anytime.
+            </p>
+
+            <div className="ml-auto flex items-center gap-2">
+              <motion.button
+                onClick={onClose}
+                whileTap={{ scale: 0.97 }}
+                className="rounded-full px-4 py-2.5 text-[12px] font-medium text-white/50 transition hover:bg-white/[0.04] hover:text-white/65"
+              >
+                Cancel
+              </motion.button>
+
+              <motion.button
+                onClick={saveCourse}
+                disabled={!canSave}
+                whileHover={canSave ? { y: -1 } : undefined}
+                whileTap={canSave ? { scale: 0.98 } : undefined}
+                className="rounded-full bg-white px-5 py-2.5 text-[12px] font-medium text-black transition hover:bg-white/88 disabled:cursor-not-allowed disabled:opacity-20"
+              >
+                Add course
+              </motion.button>
+            </div>
+          </div>
         </div>
       </motion.div>
+    </motion.div>
+  );
+}
+
+function AccountMenu({
+  open,
+  name,
+  email,
+  onProfile,
+  onLogout,
+  loggingOut,
+  mobile = false,
+}: {
+  open: boolean;
+  name: string;
+  email: string;
+  onProfile: () => void;
+  onLogout: () => void;
+  loggingOut: boolean;
+  mobile?: boolean;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, y: -5, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+          transition={{
+            duration: 0.18,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className={`absolute z-50 w-[230px] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#17171A]/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl ${
+            mobile
+              ? "right-0 top-12"
+              : "right-0 top-11"
+          }`}
+        >
+          <div className="border-b border-white/[0.055] px-3 pb-3 pt-2">
+            <p className="truncate text-[11px] font-medium text-white/72">
+              {name}
+            </p>
+            <p className="mt-1 truncate text-[11px] text-white/40">
+              {email || "Account"}
+            </p>
+          </div>
+
+          <div className="pt-1.5">
+            <button
+              type="button"
+              onClick={onProfile}
+              className="flex w-full items-center gap-2.5 rounded-[11px] px-3 py-2.5 text-left text-[12px] text-white/42 transition hover:bg-white/[0.045] hover:text-white/75"
+            >
+              <UserRound size={13} />
+              Profile & account
+            </button>
+
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={loggingOut}
+              className="flex w-full items-center gap-2.5 rounded-[11px] px-3 py-2.5 text-left text-[12px] text-red-300/55 transition hover:bg-red-500/[0.07] hover:text-red-200 disabled:opacity-35"
+            >
+              <LogOut size={13} />
+              {loggingOut ? "Logging out" : "Log out"}
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function NavigationItem({
+  icon: Icon,
+  label,
+  active = false,
+  collapsed = false,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  active?: boolean;
+  collapsed?: boolean;
+  onClick?: () => void;
+}) {
+  const schoolTheme = useSchoolTheme();
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+      whileHover={{
+        x: collapsed || active ? 0 : 2,
+        scale: collapsed ? 1.035 : 1,
+      }}
+      whileTap={{ scale: 0.97 }}
+      className={`group relative flex w-full items-center rounded-[12px] text-[12px] transition ${
+        collapsed
+          ? "h-11 justify-center px-0"
+          : "gap-3 px-3 py-[10px]"
+      } ${
+        active
+          ? "bg-white/[0.055] text-white/88"
+          : "text-white/50 hover:bg-white/[0.03] hover:text-white/72"
+      }`}
+    >
+      {active && (
+        <motion.div
+          layoutId="desktop-nav-active"
+          className={`absolute rounded-full ${
+            collapsed
+              ? "bottom-1.5 h-[2px] w-4"
+              : "left-0 h-4 w-[2px]"
+          }`}
+          style={{
+            backgroundColor: schoolTheme.accent,
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 360,
+            damping: 30,
+          }}
+        />
+      )}
+
+      <Icon
+        size={collapsed ? 18 : 16}
+        strokeWidth={active ? 2.1 : 1.7}
+      />
+
+      <AnimatePresence initial={false}>
+        {!collapsed && (
+          <motion.span
+            key={`${label}-copy`}
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -4 }}
+            transition={{ duration: 0.15 }}
+            className="whitespace-nowrap"
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  );
+}
+
+function MobileNavigationItem({
+  icon: Icon,
+  label,
+  active = false,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const schoolTheme = useSchoolTheme();
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.94 }}
+      className={`relative flex min-w-[50px] flex-1 flex-col items-center gap-1.5 rounded-[10px] px-1 py-1.5 sm:min-w-[58px] sm:flex-none sm:px-2 ${
+        active
+          ? "text-white"
+          : "text-white/40"
+      }`}
+    >
+      <Icon
+        size={18}
+        strokeWidth={active ? 2.2 : 1.7}
+      />
+
+      <span className="text-[10px] font-medium sm:text-[11px]">
+        {label}
+      </span>
+
+      {active && (
+        <motion.div
+          layoutId="mobile-nav-active"
+          className="absolute -top-2.5 h-[2px] w-5 rounded-full"
+          style={{
+            backgroundColor: schoolTheme.accent,
+          }}
+        />
+      )}
+    </motion.button>
+  );
+}
+
+function GoalRing({
+  currentGpa,
+  targetGpa,
+  progress,
+  gap,
+  reached,
+  color,
+}: {
+  currentGpa: number | null;
+  targetGpa: number;
+  progress: number;
+  gap: number | null;
+  reached: boolean;
+  color: string;
+}) {
+  const percentage =
+    currentGpa === null
+      ? 0
+      : Math.min(100, Math.max(0, progress * 100));
+
+  return (
+    <div className="mx-auto flex flex-col items-center lg:mx-0">
+      <div
+        className="relative flex h-[184px] w-[184px] items-center justify-center rounded-full p-[1px]"
+        style={{
+          background: `conic-gradient(${color} ${percentage}%, rgba(255,255,255,0.07) ${percentage}% 100%)`,
+        }}
+      >
+        <div className="flex h-full w-full items-center justify-center rounded-full bg-[#101012] p-4">
+          <div className="text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-white/36">
+              Goal meter
+            </p>
+            <p className="mt-2 text-[34px] font-medium tracking-[-0.055em] text-white/80">
+              {currentGpa === null
+                ? "--"
+                : `${Math.round(percentage)}%`}
+            </p>
+            <p className="mt-1 text-[11px] text-white/40">
+              of {targetGpa.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p
+        className="mt-4 text-center text-[12px] font-medium"
+        style={{ color }}
+      >
+        {currentGpa === null
+          ? "Waiting for grades"
+          : reached
+            ? "Target cleared"
+            : `${gap?.toFixed(2)} left to close`}
+      </p>
+    </div>
+  );
+}
+
+function HeroMetric({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  const schoolTheme = useSchoolTheme();
+
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-white/[0.045] pb-4 last:border-b-0 last:pb-0">
+      <p className="text-[11px] text-white/36">
+        {label}
+      </p>
+
+      <p
+        className="text-[12px] font-medium text-white/56"
+        style={
+          accent
+            ? { color: schoolTheme.accent }
+            : undefined
+        }
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        delay: 0.22,
+        duration: 0.52,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+    >
+      <p className="text-[24px] font-medium tracking-[-0.045em] text-white/88">
+        {value}
+      </p>
+
+      <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-white/34">
+        {label}
+      </p>
+    </motion.div>
+  );
+}
+
+function SemesterLine({
+  label,
+  value,
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-5 border-b border-white/[0.06] py-4.5 first:pt-5">
+      <p className="text-[13px] text-white/44">
+        {label}
+      </p>
+
+      <p
+        className={`text-[13px] font-medium ${
+          muted
+            ? "text-white/38"
+            : "text-white/72"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AcademicRow({
+  label,
+  value,
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
+  return (
+    <motion.div
+      whileHover={{ x: 2 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-center justify-between border-b border-white/[0.055] py-4 first:border-t"
+    >
+      <p className="text-[12px] text-white/46">
+        {label}
+      </p>
+
+      <p
+        className={`text-[12px] ${
+          muted
+            ? "text-white/27"
+            : "text-white/78"
+        }`}
+      >
+        {value}
+      </p>
+    </motion.div>
+  );
+}
+
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[12px] font-medium uppercase tracking-[0.09em] text-white/40">
+        {label}
+      </span>
+
+      {children}
+    </label>
+  );
+}
+
+const inputClass =
+  "w-full rounded-[13px] border border-white/[0.075] bg-white/[0.035] px-3.5 py-3 text-[13px] text-white outline-none transition placeholder:text-white/17 hover:border-white/[0.12] focus:border-white/20 focus:bg-white/[0.055] focus:ring-4 focus:ring-white/[0.025]";
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  );
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatEventMonthDay(value: string) {
+  const parsed = new Date(`${value}T12:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  })
+    .format(parsed)
+    .toUpperCase();
+}
+
+function formatGpa(value: number) {
+  return Number.isFinite(value) ? value.toFixed(2) : "3.70";
+}
+
+function buildThemePalette(
+  brandColors: string[],
+  primary: string,
+  secondary: string,
+) {
+  const candidates = [
+    ...brandColors,
+    primary,
+    secondary,
+    mixHex(primary, "#FFFFFF", 0.22),
+    mixHex(secondary, "#FFFFFF", 0.2),
+    mixHex(primary, "#000000", 0.15),
+    mixHex(primary, secondary, 0.5),
+  ]
+    .filter(isHex)
+    .map((color) => color.toUpperCase())
+    .filter(
+      (color) =>
+        !["#000000", "#FFFFFF", "#1C1C1C", "#F5F5F5"].includes(color),
+    );
+
+  const unique = [...new Set(candidates)];
+
+  return unique.length >= 6
+    ? unique.slice(0, 6)
+    : [
+        ...unique,
+        "#8BA18E",
+        "#B3C9CD",
+        "#ECB748",
+        "#946E24",
+        "#A5A5AA",
+      ].slice(0, 6);
+}
+
+function isHex(value: string) {
+  return /^#[0-9A-Fa-f]{6}$/.test(value);
+}
+
+function mixHex(colorA: string, colorB: string, amount: number) {
+  if (!isHex(colorA) || !isHex(colorB)) return colorA;
+
+  const a = hexToRgb(colorA);
+  const b = hexToRgb(colorB);
+  const ratio = Math.min(1, Math.max(0, amount));
+
+  const channel = (start: number, end: number) =>
+    Math.round(start + (end - start) * ratio);
+
+  return rgbToHex(
+    channel(a.r, b.r),
+    channel(a.g, b.g),
+    channel(a.b, b.b),
+  );
+}
+
+function hexToRgb(value: string) {
+  const hex = value.replace("#", "");
+
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return `#${[r, g, b]
+    .map((value) =>
+      Math.max(0, Math.min(255, value))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+function formatCredits(value: number) {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(1);
+}
+
+function CoursesLoading() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="overflow-hidden rounded-[30px] border border-white/[0.07] bg-[#101012]"
+    >
+      <div className="animate-pulse p-8 sm:p-9">
+        <div className="h-10 w-10 rounded-[13px] bg-white/[0.05]" />
+
+        <div className="mt-8 h-6 w-52 rounded-md bg-white/[0.055]" />
+
+        <div className="mt-3 h-3 w-80 max-w-full rounded bg-white/[0.035]" />
+
+        <div className="mt-2 h-3 w-64 max-w-full rounded bg-white/[0.035]" />
+      </div>
     </motion.div>
   );
 }
