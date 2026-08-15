@@ -1690,7 +1690,12 @@ export default function Dashboard() {
                 duration: 0.5,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-white/[0.06] bg-[#0B0B0D]/94 px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl lg:hidden sm:px-10 md:px-24"
+              data-mobile-dock="true"
+              className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/[0.06] bg-[#0B0B0D]/96 px-2 pt-2.5 shadow-[0_-12px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl lg:hidden sm:px-10 md:px-24"
+              style={{
+                paddingBottom: "max(4px, env(safe-area-inset-bottom))",
+                transform: "translateZ(0)",
+              }}
             >
               <MobileNavigationItem
                 icon={Home}
