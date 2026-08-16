@@ -35,3 +35,15 @@ body {
     sans-serif;
   overflow-x: hidden;
 }
+
+.student-notebook-paper {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(to bottom, transparent 31px, rgba(255,255,255,.045) 32px);
+  background-size: 100% 32px, 100% 32px;
+  background-position: 0 0, 0 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--foreground) 24%, transparent);
+}

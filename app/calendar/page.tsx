@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Circle,
   Clock3,
+  Flame,
   GripVertical,
   Loader2,
   Lock,
@@ -43,6 +44,7 @@ import {
   motion,
 } from "framer-motion";
 import { supabase } from "../../lib/supabase";
+import { CalendarScheduleCoach } from "../../components/calendar-schedule-coach";
 import {
   SchoolMark,
   useSchoolIdentity,
@@ -123,6 +125,13 @@ type CourseEvent = {
   start_date: string;
   end_date: string | null;
   notes: string | null;
+};
+
+type StudentProgress = {
+  xp: number;
+  current_streak: number;
+  longest_streak: number;
+  last_completion_on: string | null;
 };
 
 type InspectorDraft = {
@@ -437,6 +446,8 @@ export default function CalendarPage() {
     useState<ClassRule[]>([]);
   const [courseEvents, setCourseEvents] =
     useState<CourseEvent[]>([]);
+  const [progress, setProgress] =
+    useState<StudentProgress>({ xp: 0, current_streak: 0, longest_streak: 0, last_completion_on: null });
   const [preferences, setPreferences] =
     useState<CalendarPreferences>(
       defaultPreferences,
@@ -524,6 +535,10 @@ export default function CalendarPage() {
               data: preferenceData,
               error: preferenceError,
             },
+            {
+              data: progressData,
+              error: progressError,
+            },
           ] = await Promise.all([
             supabase
               .from("courses")
@@ -593,6 +608,11 @@ export default function CalendarPage() {
                 session.user.id,
               )
               .maybeSingle(),
+            supabase
+              .from("student_progress")
+              .select("xp, current_streak, longest_streak, last_completion_on")
+              .eq("user_id", session.user.id)
+              .maybeSingle(),
           ]);
 
           if (courseError) {
@@ -638,6 +658,9 @@ export default function CalendarPage() {
                 preferenceError,
               ),
             );
+          }
+          if (progressError && progressError.code !== "PGRST116") {
+            throw new Error(supabaseErrorMessage("student_progress", progressError));
           }
 
           setCourses(
@@ -741,6 +764,13 @@ export default function CalendarPage() {
             (eventData ??
               []) as CourseEvent[],
           );
+
+          setProgress({
+            xp: Number(progressData?.xp ?? 0),
+            current_streak: Number(progressData?.current_streak ?? 0),
+            longest_streak: Number(progressData?.longest_streak ?? 0),
+            last_completion_on: progressData?.last_completion_on ?? null,
+          });
 
           const nextPreferences =
             preferenceData
@@ -935,6 +965,18 @@ export default function CalendarPage() {
       ),
     [visibleAiItems],
   );
+
+  const todayStudyItems = useMemo(() => {
+    const today = localDateString(new Date());
+    return items
+      .filter((item) =>
+        item.item_type === "study" &&
+        item.status === "scheduled" &&
+        localDateString(new Date(item.starts_at)) === today,
+      )
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+      .slice(0, 4);
+  }, [items]);
 
   const upcomingVisibleItems = useMemo(
     () => {
@@ -1531,6 +1573,17 @@ export default function CalendarPage() {
     return payload.item;
   }
 
+  async function completeQuest(item: CalendarItem) {
+    try {
+      setError("");
+      await patchItem(item.id, { status: "completed" });
+      await loadEverything({ silent: true });
+      setStatusMessage(`${item.title} complete · +25 XP. Nice work.`);
+    } catch (questError) {
+      setError(questError instanceof Error ? questError.message : "Could not complete this study block.");
+    }
+  }
+
   async function handleEventMove(
     info: any,
   ) {
@@ -1797,10 +1850,14 @@ export default function CalendarPage() {
       setInspector(null);
       setFocusTitle(false);
 
+      if (status === "completed") {
+        await loadEverything({ silent: true });
+      }
+
       setStatusMessage(
         status ===
           "completed"
-          ? "Study block completed. Planner learning updated."
+          ? "Study block completed · +25 XP. Your focus streak and planner learning were updated."
           : "Study block skipped. Planner learning updated.",
       );
     } catch (statusError) {
@@ -2190,6 +2247,13 @@ export default function CalendarPage() {
               </p>
             </div>
 
+            <div className="space-y-3">
+              <CalendarScheduleCoach
+                courses={courses}
+                accent={identity.primary}
+                onApplied={() => loadEverything({ silent: true })}
+              />
+
             <div className="rounded-[22px] border border-white/[0.07] bg-white/[0.018] p-4">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/30">
@@ -2246,6 +2310,19 @@ export default function CalendarPage() {
                   </p>
                 </div>
               </div>
+
+              <div className="mt-3 flex items-center justify-between rounded-[15px] border border-white/[0.055] bg-black/10 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <Flame size={13} style={{ color: identity.primary }} />
+                  <p className="text-[10px] font-medium text-white/48">
+                    {progress.current_streak} day focus streak
+                  </p>
+                </div>
+                <p className="text-[9px] text-white/27">
+                  Level {Math.floor(progress.xp / 250) + 1} · {progress.xp} XP
+                </p>
+              </div>
+            </div>
             </div>
           </header>
 
@@ -2604,6 +2681,47 @@ export default function CalendarPage() {
             </div>
 
             <aside className="space-y-4">
+              <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.018] p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-white/25">Today's quests</p>
+                    <p className="mt-1 text-[10px] text-white/36">Finish a block to earn 25 XP.</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[9px]" style={{ color: identity.primary }}>
+                    <Flame size={12} /> {progress.current_streak}
+                  </div>
+                </div>
+
+                {todayStudyItems.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    {todayStudyItems.map((item) => {
+                      const course = item.course_id ? courseMap.get(item.course_id) : null;
+                      return (
+                        <div key={item.id} className="flex items-center gap-3 rounded-[15px] border border-white/[0.055] bg-black/10 p-2.5">
+                          <button
+                            type="button"
+                            onClick={() => void completeQuest(item)}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] text-white/22 transition hover:scale-105 hover:text-black"
+                            style={{ backgroundColor: `${course?.color ?? identity.primary}0D` }}
+                            aria-label={`Complete ${item.title}`}
+                          >
+                            <Check size={12} />
+                          </button>
+                          <button type="button" onClick={() => jumpToCalendarItem(item)} className="min-w-0 flex-1 text-left">
+                            <span className="block truncate text-[10px] font-medium text-white/52">{item.title}</span>
+                            <span className="mt-1 block text-[8px] text-white/23">{compactCalendarTime(item.starts_at)} · {calendarDurationMinutes(item.starts_at, item.ends_at)} min</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[15px] border border-dashed border-white/[0.07] px-3 py-4 text-center text-[9px] leading-4 text-white/22">
+                    No study quests today. Plan the week or enjoy the clear space.
+                  </div>
+                )}
+              </div>
+
               <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.018] p-5">
                 <div className="flex items-center justify-between">
                   <div

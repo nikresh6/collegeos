@@ -14,6 +14,7 @@ import {
   CalendarDays,
   ChevronRight,
   Flag,
+  FileQuestion,
   Gauge,
   Target,
   Trophy,
@@ -779,6 +780,18 @@ export default function Dashboard() {
                 label="Study"
                 collapsed={sidebarCollapsed}
                 onClick={() => router.push("/study")}
+              />
+              <NavigationItem
+                icon={LibraryBig}
+                label="Notebook"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/notes")}
+              />
+              <NavigationItem
+                icon={FileQuestion}
+                label="Exam Intelligence"
+                collapsed={sidebarCollapsed}
+                onClick={() => router.push("/assessment-lab")}
               />
               <NavigationItem
                 icon={Mic2}
@@ -1717,6 +1730,18 @@ export default function Dashboard() {
               />
 
               <MobileNavigationItem
+                icon={LibraryBig}
+                label="Notes"
+                onClick={() => router.push("/notes")}
+              />
+
+              <MobileNavigationItem
+                icon={FileQuestion}
+                label="Exams"
+                onClick={() => router.push("/assessment-lab")}
+              />
+
+              <MobileNavigationItem
                 icon={Mic2}
                 label="Lectures"
                 onClick={() => router.push("/lectures")}
@@ -2427,7 +2452,7 @@ function MobileNavigationItem({
       type="button"
       onClick={onClick}
       whileTap={{ scale: 0.94 }}
-      className={`relative flex min-w-[50px] flex-1 flex-col items-center gap-1.5 rounded-[10px] px-1 py-1.5 sm:min-w-[58px] sm:flex-none sm:px-2 ${
+      className={`relative flex min-w-[40px] flex-1 flex-col items-center gap-1 rounded-[10px] px-0.5 py-1.5 sm:min-w-[58px] sm:flex-none sm:px-2 ${
         active
           ? "text-white"
           : "text-white/40"
@@ -2438,7 +2463,7 @@ function MobileNavigationItem({
         strokeWidth={active ? 2.2 : 1.7}
       />
 
-      <span className="text-[10px] font-medium sm:text-[11px]">
+      <span className="text-[8px] font-medium sm:text-[11px]">
         {label}
       </span>
 

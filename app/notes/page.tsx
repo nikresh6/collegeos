@@ -36,6 +36,7 @@ import {
 import {
   SourceProvenance,
 } from "../../components/source-provenance";
+import { NotebookTools } from "../../components/notebook-tools";
 
 type Course = {
   id: string;
@@ -312,6 +313,9 @@ export default function NotesPage() {
     useRef<ReturnType<
       typeof setTimeout
     > | null>(null);
+
+  const editorRef =
+    useRef<HTMLTextAreaElement | null>(null);
 
   const lastSavedRef =
     useRef("");
@@ -1635,7 +1639,7 @@ export default function NotesPage() {
             size={13}
             className="animate-spin"
           />
-          Opening Notes
+          Opening Notebook
         </div>
       </main>
     );
@@ -1677,10 +1681,10 @@ export default function NotesPage() {
 
               <div>
                 <p className="text-[8px] font-semibold uppercase tracking-[0.15em] text-white/22">
-                  Notes
+                  Notebook
                 </p>
                 <p className="mt-0.5 text-[8px] text-white/15">
-                  Capture first. Organize when it matters.
+                  Typed pages, paper scans, and AI study briefs.
                 </p>
               </div>
             </div>
@@ -1987,7 +1991,7 @@ export default function NotesPage() {
                           : "text-white/20"
                       }`}
                     >
-                      Original
+                      Notebook page
                     </button>
 
                     <button
@@ -2007,14 +2011,27 @@ export default function NotesPage() {
                           : "text-white/20"
                       }`}
                     >
-                      Enhanced
+                      AI study brief
                     </button>
 
                   </div>
 
+                  {editorMode === "original" && userId && (
+                    <NotebookTools
+                      noteId={activeNote.id}
+                      userId={userId}
+                      courseId={draftCourseId}
+                      accent={accent}
+                      value={draftContent}
+                      onChange={setDraftContent}
+                      editorRef={editorRef}
+                    />
+                  )}
+
                   {editorMode ===
                   "original" ? (
                     <textarea
+                      ref={editorRef}
                       value={
                         draftContent
                       }
@@ -2029,13 +2046,13 @@ export default function NotesPage() {
                       onBlur={() =>
                         void saveNow()
                       }
-                      placeholder="Write rough bullets, shorthand, questions, equations, professor emphasis, anything you want to remember…"
-                      className="mt-5 min-h-[62vh] w-full resize-none bg-transparent text-[14px] leading-8 text-white/48 outline-none placeholder:text-white/13"
+                      placeholder="Start anywhere — headings, concepts, equations, questions, professor emphasis, or a checklist for what to review…"
+                      className="student-notebook-paper mt-4 min-h-[62vh] w-full resize-none rounded-[18px] border border-white/[0.035] bg-white/[0.006] px-5 py-4 text-[14px] leading-8 text-white/55 outline-none placeholder:text-white/13"
                     />
                   ) : (
                     <div className="mt-5 min-h-[62vh] whitespace-pre-wrap text-[14px] leading-8 text-white/48">
                       {activeNote.enhanced_content ||
-                        "Enhance this note to create a polished study version."}
+                        "Build an AI study brief to combine your page with the lecture and course graph."}
                     </div>
                   )}
 

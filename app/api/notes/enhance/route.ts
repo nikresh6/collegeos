@@ -159,6 +159,46 @@ export async function POST(
       }
     }
 
+    let courseIntelligence = "";
+
+    if (note.course_id) {
+      const [
+        { data: materialData, error: materialError },
+        { data: assessmentData, error: assessmentError },
+      ] = await Promise.all([
+        context.supabase
+          .from("material_analyses")
+          .select("summary, explanation")
+          .eq("course_id", note.course_id)
+          .eq("status", "ready")
+          .order("updated_at", { ascending: false })
+          .limit(6),
+        context.supabase
+          .from("assessment_sources")
+          .select("title, analysis")
+          .eq("course_id", note.course_id)
+          .eq("status", "ready")
+          .order("created_at", { ascending: false })
+          .limit(4),
+      ]);
+
+      if (materialError) throw materialError;
+      if (assessmentError) throw assessmentError;
+
+      const materials = (materialData ?? [])
+        .map((item) => [item.summary, item.explanation].filter(Boolean).join(" — "))
+        .filter(Boolean)
+        .join("\n");
+      const assessments = (assessmentData ?? [])
+        .map((item) => `${item.title}: ${JSON.stringify(item.analysis)}`)
+        .join("\n");
+
+      courseIntelligence = [materials, assessments]
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, 7000);
+    }
+
     const result =
       await noteCompletion({
         system: `You turn a student's rough college notes into polished study notes.
@@ -167,7 +207,7 @@ NON-NEGOTIABLE RULES:
 1. The student's original note is the primary signal.
 2. Preserve the student's meaning, emphasis, questions, examples, shorthand, and uncertainties.
 3. Do not silently replace the student's perspective with generic textbook prose.
-4. Never invent facts that are not supported by the student's note or the optional lecture transcript.
+4. Never invent facts that are not supported by the student's note, optional lecture transcript, or analyzed course intelligence.
 5. If the student's note appears uncertain or incorrect and the transcript does not resolve it, preserve the uncertainty instead of "fixing" it.
 6. Use clean plain-text structure with short headings and bullets.
 7. Useful sections may include Key Ideas, Definitions, Examples, Professor Emphasis, Questions to Resolve, and Exam Signals, but only include sections supported by the source.
@@ -185,7 +225,11 @@ ${
     ? `OPTIONAL LECTURE TRANSCRIPT FOR GROUNDING:
 ${lectureContext}`
     : "NO LECTURE TRANSCRIPT IS LINKED TO THIS NOTE."
-}`,
+}
+
+${courseIntelligence
+  ? `ANALYZED COURSE MATERIAL + ASSESSMENT SIGNALS:\n${courseIntelligence}`
+  : "NO ANALYZED COURSE MATERIAL IS AVAILABLE FOR THIS NOTE."}`,
         maxTokens:
           1800,
       });

@@ -331,6 +331,8 @@ SOURCE-GROUNDING RULES:
 9. sourceFileIds may only use SOURCE IDs that appear in the context for that topic.
 10. Difficulty is 1, 2, or 3.
 11. Mix the requested question types as evenly as practical.
+12. When REAL ASSESSMENT EVIDENCE is present, treat it as the strongest signal for question wording, cognitive demand, common traps, and difficulty. Mirror the professor's pattern without copying a real question verbatim.
+13. Real assessment evidence calibrates style, but the answer must still be supported by the supplied course material.
 
 REQUESTED QUESTION TYPES:
 ${typeInstruction}
