@@ -7,6 +7,7 @@ import type {
 import {
   userContext,
 } from "../../../../lib/server-auth";
+import { noteContentToPlainText } from "../../../../lib/note-content";
 
 export const runtime =
   "nodejs";
@@ -599,10 +600,8 @@ async function generateLinks({
       const note of
       notes ?? []
     ) {
-      if (
-        !note.raw_content
-          ?.trim()
-      ) {
+      const noteText = noteContentToPlainText(note.raw_content);
+      if (!noteText) {
         continue;
       }
 
@@ -619,12 +618,7 @@ async function generateLinks({
             `/notes?note=${note.id}`,
         },
         excerpt:
-          note.raw_content
-            .trim()
-            .slice(
-              0,
-              180,
-            ),
+          noteText.slice(0, 180),
         href:
           `/notes?note=${note.id}`,
       });
@@ -726,13 +720,7 @@ async function generateLinks({
               `/notes?note=${note.id}`,
           },
           excerpt:
-            note.raw_content
-              ?.trim()
-              .slice(
-                0,
-                180,
-              ) ??
-            null,
+            noteContentToPlainText(note.raw_content).slice(0, 180) || null,
           href:
             `/notes?note=${note.id}`,
         },

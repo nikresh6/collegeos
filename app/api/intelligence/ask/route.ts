@@ -8,6 +8,7 @@ import {
 import {
   buildAttentionSnapshot,
 } from "../../../../lib/attention-engine";
+import { noteContentToPlainText } from "../../../../lib/note-content";
 
 export const runtime =
   "nodejs";
@@ -1267,8 +1268,9 @@ export async function POST(
           null,
         body:
           truncate(
-            note.enhanced_content ||
-              note.raw_content,
+            noteContentToPlainText(
+              note.enhanced_content || note.raw_content,
+            ),
             2200,
           ),
         courseId:

@@ -8,6 +8,7 @@ import {
   friendlyNoteAiError,
   noteCompletion,
 } from "../../../../lib/notes-ai";
+import { noteContentToPlainText } from "../../../../lib/note-content";
 
 export const runtime =
   "nodejs";
@@ -207,17 +208,9 @@ export async function POST(
         )
         .join("\n");
 
-    const content =
-      (
-        note.enhanced_content ||
-        note.raw_content ||
-        ""
-      )
-        .trim()
-        .slice(
-          0,
-          10000,
-        );
+    const content = noteContentToPlainText(
+      note.enhanced_content || note.raw_content,
+    ).slice(0, 10000);
 
     const result =
       await noteCompletion({

@@ -3030,6 +3030,9 @@ function MaterialNotesDocument({
         height: auto !important;
         overflow: visible !important;
         background: white !important;
+        color: #171717 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       #material-notes-print-root {
@@ -3056,7 +3059,10 @@ function MaterialNotesDocument({
       #material-notes-print-root * {
         color: #111 !important;
         background: transparent !important;
+        opacity: 1 !important;
+        filter: none !important;
         box-shadow: none !important;
+        text-shadow: none !important;
       }
 
       #material-notes-print-root .notes-print-card {
@@ -3179,7 +3185,10 @@ function MaterialNotesDocument({
           #material-notes-print-root * {
             color: #111 !important;
             background: transparent !important;
+            opacity: 1 !important;
+            filter: none !important;
             box-shadow: none !important;
+            text-shadow: none !important;
           }
 
           #material-notes-print-root .notes-print-hide {
