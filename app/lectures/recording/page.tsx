@@ -652,7 +652,7 @@ export default function LectureRecordingPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <main className="relative min-h-screen overflow-hidden bg-[#080809] text-[#F5F5F7]">
+      <main className="relative min-h-[100svh] overflow-x-hidden bg-[#080809] text-[#F5F5F7]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[620px] opacity-[0.14]"
@@ -661,7 +661,7 @@ export default function LectureRecordingPage() {
           }}
         />
 
-        <div className="relative flex min-h-screen flex-col">
+        <div className="relative flex min-h-[100svh] flex-col">
           <header className="flex min-h-[72px] items-center justify-between gap-4 border-b border-white/[0.06] px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -731,7 +731,7 @@ export default function LectureRecordingPage() {
           </header>
 
           <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(360px,0.78fr)_minmax(0,1.22fr)]">
-            <section className="relative flex min-h-[430px] flex-col justify-between border-b border-white/[0.06] px-5 py-6 sm:px-8 sm:py-8 lg:border-b-0 lg:border-r lg:px-10 lg:py-10">
+            <section className="relative flex min-h-[430px] flex-col justify-between border-b border-white/[0.06] px-4 py-6 sm:px-8 sm:py-8 lg:border-b-0 lg:border-r lg:px-10 lg:py-10">
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/28">
                   Live lecture
@@ -797,7 +797,7 @@ export default function LectureRecordingPage() {
                   )}
                 </div>
 
-                <p className="mt-7 text-[64px] font-medium leading-none tracking-[-0.065em] tabular-nums text-white/92 sm:text-[76px]">
+                <p className="mt-7 text-[54px] font-medium leading-none tracking-[-0.06em] tabular-nums text-white/92 sm:text-[76px]">
                   {formatDuration(
                     recording.seconds,
                   )}

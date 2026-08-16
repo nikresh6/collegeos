@@ -1618,7 +1618,7 @@ export default function CoursePage() {
             </div>
           </div>
 
-          <div className="mx-auto max-w-[1400px] px-5 pb-32 pt-8 sm:px-8 md:px-10 md:pb-16 md:pt-8 lg:px-14 xl:px-16">
+          <div className="mx-auto max-w-[1400px] px-4 pb-28 pt-6 sm:px-8 sm:pt-8 md:px-10 lg:px-14 lg:pb-16 xl:px-16">
             {/* Desktop breadcrumb */}
             <div className="mb-12 hidden items-center justify-between gap-4 md:flex">
               <div className="flex items-center gap-2 text-[11px] text-white/25">

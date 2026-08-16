@@ -79,7 +79,7 @@ export default function CoursesPage() {
   return (
     <MotionConfig reducedMotion="user">
       <main className="min-h-screen bg-[#080809] text-[#F5F5F7]">
-        <div className="mx-auto max-w-[1180px] px-5 py-8 sm:px-8 md:px-10 md:py-12">
+        <div className="mx-auto max-w-[1180px] px-4 pb-28 pt-6 sm:px-8 sm:pt-8 md:px-10 md:pt-12 lg:pb-12">
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -100,7 +100,7 @@ export default function CoursesPage() {
             </button>
           </div>
 
-          <header className="relative mt-12 overflow-hidden border-b border-white/[0.065] pb-10 pt-2">
+          <header className="relative mt-9 overflow-hidden border-b border-white/[0.065] pb-8 pt-2 sm:mt-12 sm:pb-10">
           <SchoolLandmarkBackdrop opacity={0.05} align="right" />
           <div className="relative z-10">
             <div className="flex items-center gap-3">
@@ -112,7 +112,7 @@ export default function CoursesPage() {
               <SchoolLandmarkLabel className="mt-1" />
             </div>
           </div>
-            <h1 className="mt-5 text-[44px] font-medium leading-[0.98] tracking-[-0.06em] sm:text-[58px]">
+            <h1 className="mt-5 text-[38px] font-medium leading-[0.98] tracking-[-0.055em] sm:text-[58px]">
               Your academic workspace.
             </h1>
             <p className="mt-4 max-w-2xl text-[13px] leading-6 text-white/30">
@@ -142,7 +142,7 @@ export default function CoursesPage() {
               </button>
             </div>
           ) : (
-            <section className="mt-10 grid gap-4 md:grid-cols-2">
+            <section className="mt-8 grid gap-3 sm:mt-10 sm:gap-4 md:grid-cols-2">
               {courses.map((course, index) => (
                 <motion.button
                   key={course.id}
@@ -156,7 +156,7 @@ export default function CoursesPage() {
                   onClick={() =>
                     router.push(`/courses/${course.id}`)
                   }
-                  className="group relative overflow-hidden rounded-[24px] border border-white/[0.065] bg-[#101012] p-5 text-left transition hover:border-white/[0.1] hover:bg-[#121214] sm:p-6"
+                  className="group relative overflow-hidden rounded-[21px] border border-white/[0.065] bg-[#101012] p-4 text-left transition hover:border-white/[0.1] hover:bg-[#121214] sm:rounded-[24px] sm:p-6"
                 >
                   <div
                     className="pointer-events-none absolute right-[-80px] top-[-100px] h-[230px] w-[230px] rounded-full opacity-[0.08] blur-[90px]"

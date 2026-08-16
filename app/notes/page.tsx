@@ -1634,7 +1634,7 @@ export default function NotesPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <main className="relative min-h-screen overflow-hidden bg-[#080809] text-[#F5F5F7]">
+      <main className="relative h-[100svh] overflow-hidden bg-[#080809] text-[#F5F5F7]">
         <div
           aria-hidden
           className="pointer-events-none fixed left-[22%] top-[-360px] h-[720px] w-[820px] rounded-full opacity-[0.08] blur-[155px]"
@@ -1644,7 +1644,7 @@ export default function NotesPage() {
           }}
         />
 
-        <div className="relative flex min-h-screen flex-col">
+        <div className="relative flex h-full min-h-0 flex-col">
           <header className="flex items-center justify-between gap-4 border-b border-white/[0.05] px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
               <button
@@ -1670,7 +1670,7 @@ export default function NotesPage() {
                 <p className="text-[8px] font-semibold uppercase tracking-[0.15em] text-white/22">
                   Notebook
                 </p>
-                <p className="mt-0.5 text-[8px] text-white/15">
+                <p className="mt-0.5 hidden text-[8px] text-white/15 sm:block">
                   Typed pages, paper scans, and AI study briefs.
                 </p>
               </div>
@@ -1748,7 +1748,7 @@ export default function NotesPage() {
           </div>
 
           <div className="grid min-h-0 flex-1 md:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_320px]">
-            <aside className="hidden border-r border-white/[0.05] bg-[#0B0B0C]/55 p-4 md:block">
+            <aside className="hidden min-h-0 overflow-y-auto border-r border-white/[0.05] bg-[#0B0B0C]/55 p-4 md:block">
               <div className="flex items-center gap-2 rounded-[12px] border border-white/[0.05] bg-white/[0.008] px-3 py-2.5">
                 <Search
                   size={10}
@@ -1832,10 +1832,10 @@ export default function NotesPage() {
               </div>
             </aside>
 
-            <section className="min-w-0 overflow-y-auto px-5 py-7 sm:px-8 lg:px-10">
+            <section className="min-w-0 overflow-y-auto px-4 pb-28 pt-6 sm:px-8 md:pt-7 lg:px-10 lg:pb-10">
               {activeNote ? (
                 <div className="mx-auto max-w-[780px]">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         value={
@@ -1980,7 +1980,7 @@ export default function NotesPage() {
                       void saveNow()
                     }
                     placeholder="Untitled note"
-                    className="mt-7 w-full bg-transparent text-[38px] font-medium leading-[1.03] tracking-[-0.052em] text-white/82 outline-none placeholder:text-white/15 sm:text-[48px]"
+                    className="mt-6 w-full bg-transparent text-[34px] font-medium leading-[1.03] tracking-[-0.052em] text-white/82 outline-none placeholder:text-white/15 sm:mt-7 sm:text-[48px]"
                   />
 
                   <div className="mt-5 flex items-center gap-2 border-b border-white/[0.045] pb-3">
@@ -2052,7 +2052,7 @@ export default function NotesPage() {
                     </div>
                   )}
 
-                  <div className="mt-5 flex items-center justify-between border-t border-white/[0.045] pt-4">
+                  <div className="mt-5 flex flex-col items-start justify-between gap-3 border-t border-white/[0.045] pt-4 sm:flex-row sm:items-center">
                     <p className="text-[7px] text-white/13">
                       {noteWordCount(
                         draftContent,
@@ -2064,7 +2064,7 @@ export default function NotesPage() {
                       characters
                     </p>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex max-w-full flex-wrap items-center gap-2">
                       {deleteConfirm ? (
                         <>
                           <span className="hidden text-[8px] text-red-100/35 sm:inline">
@@ -2136,7 +2136,7 @@ export default function NotesPage() {
               )}
             </section>
 
-            <aside className="hidden border-l border-white/[0.05] bg-[#0C0C0D]/60 p-4 xl:block">
+            <aside className="hidden min-h-0 overflow-y-auto border-l border-white/[0.05] bg-[#0C0C0D]/60 p-4 xl:block">
               {activeNote ? (
                 <div className="space-y-3">
                   <div className="rounded-[19px] border border-white/[0.055] bg-white/[0.008] p-4">

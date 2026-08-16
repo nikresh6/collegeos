@@ -322,7 +322,7 @@ export default function CourseGradesPage() {
   const targetPercent = nextLevel?.minPercent ?? null;
 
   return (
-      <main className="relative min-h-screen overflow-x-hidden bg-[#080809] pb-16 text-[#F5F5F7]">
+      <main className="relative min-h-screen overflow-x-hidden bg-[#080809] pb-28 text-[#F5F5F7] lg:pb-16">
         <div
           className="pointer-events-none fixed inset-x-0 top-0 h-[520px] opacity-[0.12]"
           style={{

@@ -172,7 +172,7 @@ export function LectureAnalysisActivity() {
           target,
         )
       }
-      className="fixed bottom-[76px] left-1/2 z-[190] w-[min(92vw,460px)] -translate-x-1/2 overflow-hidden rounded-[17px] border border-white/[0.09] bg-[#111113]/94 text-left shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition hover:border-white/[0.14] md:bottom-5"
+      className="fixed bottom-[76px] left-1/2 z-[190] w-[min(92vw,460px)] -translate-x-1/2 overflow-hidden rounded-[17px] border border-white/[0.09] bg-[#111113]/94 text-left shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition hover:border-white/[0.14] lg:bottom-5"
     >
       <div className="flex items-center gap-3 px-4 py-3">
         <div

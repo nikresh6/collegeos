@@ -246,7 +246,7 @@ export function AttentionCenter() {
     identity.primary;
 
   return (
-    <div className="fixed bottom-[132px] right-4 z-[185] w-[min(88vw,330px)] overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#111113]/96 shadow-[0_20px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:bottom-5 md:right-5">
+    <div className="fixed bottom-[132px] right-4 z-[185] w-[min(88vw,330px)] overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#111113]/96 shadow-[0_20px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl lg:bottom-5 lg:right-5">
       <div className="flex items-start gap-3 p-4">
         <div
           className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"

@@ -433,7 +433,7 @@ export function CourseMaterialManager() {
         onClick={() =>
           setOpen(true)
         }
-        className="fixed bottom-5 right-5 z-[92] flex items-center gap-2 rounded-full border border-white/[0.075] bg-[#111113]/94 px-3.5 py-2.5 text-[9px] font-medium text-white/38 shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-[#171719] hover:text-white/64 md:bottom-7 md:right-7"
+        className="fixed bottom-[76px] right-3 z-[92] flex items-center gap-2 rounded-full border border-white/[0.075] bg-[#111113]/94 px-3.5 py-2.5 text-[9px] font-medium text-white/38 shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-[#171719] hover:text-white/64 lg:bottom-7 lg:right-7"
       >
         <Settings2
           size={11}

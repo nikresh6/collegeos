@@ -840,7 +840,7 @@ export default function StudySessionPage() {
 
     return (
       <MotionConfig reducedMotion="user">
-        <main className="relative min-h-screen overflow-hidden bg-[#080809] text-white">
+        <main className="relative min-h-screen overflow-x-hidden bg-[#080809] text-white">
           <div
             aria-hidden
             className="pointer-events-none fixed inset-0 opacity-[0.13]"
@@ -849,7 +849,7 @@ export default function StudySessionPage() {
             }}
           />
 
-          <div className="relative mx-auto max-w-[980px] px-5 pb-20 pt-7 sm:px-8 md:pt-12">
+          <div className="relative mx-auto max-w-[980px] px-4 pb-24 pt-6 sm:px-8 sm:pt-7 md:pt-12">
             <button
               type="button"
               onClick={() => router.push("/study")}
@@ -874,7 +874,7 @@ export default function StudySessionPage() {
                 Session complete
               </p>
 
-              <h1 className="mt-3 text-[48px] font-medium leading-[0.98] tracking-[-0.06em] sm:text-[62px]">
+              <h1 className="mt-3 text-[42px] font-medium leading-[0.98] tracking-[-0.056em] sm:text-[62px]">
                 {scorePercent}%.
               </h1>
 
@@ -1011,7 +1011,7 @@ export default function StudySessionPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <main className="relative min-h-screen overflow-hidden bg-[#080809] text-white">
+      <main className="relative min-h-screen overflow-x-hidden bg-[#080809] text-white">
         <div
           aria-hidden
           className="pointer-events-none fixed inset-x-0 top-0 h-[560px] opacity-[0.1]"
@@ -1020,7 +1020,7 @@ export default function StudySessionPage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-[980px] px-5 pb-20 pt-6 sm:px-8 md:pt-9">
+        <div className="relative mx-auto max-w-[980px] px-4 pb-24 pt-6 sm:px-8 md:pt-9">
           <div className="flex items-center justify-between gap-4">
             <button
               type="button"
