@@ -900,7 +900,7 @@ export default function StudyPage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-[1240px] px-5 pb-24 pt-6 sm:px-8 md:px-10 md:pb-16 md:pt-10">
+        <div className="relative mx-auto max-w-[1240px] px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pt-10 lg:pb-16">
           <div className="flex items-center justify-between gap-4">
             <button
               type="button"
@@ -924,7 +924,7 @@ export default function StudyPage() {
             )}
           </div>
 
-          <header className="mt-12 grid gap-10 border-b border-white/[0.065] pb-10 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
+          <header className="mt-9 grid gap-7 border-b border-white/[0.065] pb-8 sm:mt-12 sm:gap-10 sm:pb-10 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
             <div>
               <div className="flex items-center gap-3">
                 <SchoolMark size={40} quiet />
@@ -933,12 +933,12 @@ export default function StudyPage() {
                 </p>
               </div>
 
-              <h1 className="mt-6 max-w-4xl text-[50px] font-medium leading-[0.96] tracking-[-0.062em] sm:text-[64px]">
+              <h1 className="mt-5 max-w-4xl text-[40px] font-medium leading-[0.96] tracking-[-0.057em] sm:mt-6 sm:text-[64px]">
                 Know what to study.
                 <br className="hidden sm:block" /> Then prove you know it.
               </h1>
 
-              <p className="mt-5 max-w-2xl text-[15px] leading-7 text-white/44">
+              <p className="mt-4 max-w-2xl text-[13px] leading-6 text-white/42 sm:mt-5 sm:text-[15px] sm:leading-7 sm:text-white/44">
                 Build your own session topic by topic, or let Adaptive Focus
                 target weak and under-practiced areas. Every quiz and guide is
                 grounded in the materials already connected to your course.

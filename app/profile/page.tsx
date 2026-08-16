@@ -432,7 +432,7 @@ export default function ProfilePage() {
           transition={{ duration: 0.7 }}
         />
 
-        <div className="relative mx-auto max-w-[1180px] px-5 pb-20 pt-5 sm:px-8 md:pt-8">
+        <div className="relative mx-auto max-w-[1180px] px-4 pb-28 pt-5 sm:px-8 md:pt-8 lg:pb-20">
           <div className="flex items-center justify-between">
             <motion.button
               onClick={() => router.push("/")}
@@ -468,7 +468,7 @@ export default function ProfilePage() {
               duration: 0.68,
               ease: [0.22, 1, 0.36, 1],
             }}
-            className="mt-16 grid gap-8 border-b border-white/[0.06] pb-10 lg:grid-cols-[1fr_auto] lg:items-end"
+            className="mt-10 grid gap-7 border-b border-white/[0.06] pb-8 sm:mt-16 sm:gap-8 sm:pb-10 lg:grid-cols-[1fr_auto] lg:items-end"
           >
             <div>
               <div className="mb-5 flex items-center gap-3">
@@ -492,7 +492,7 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              <h1 className="text-[48px] font-medium leading-[0.98] tracking-[-0.06em] sm:text-[62px]">
+              <h1 className="text-[40px] font-medium leading-[0.98] tracking-[-0.056em] sm:text-[62px]">
                 {firstName || "Your"} profile.
               </h1>
 

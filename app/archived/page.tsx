@@ -102,7 +102,7 @@ export default function ArchivedCoursesPage() {
     <main className="relative min-h-screen overflow-x-hidden bg-[#080809] text-[#F5F5F7]">
       <div className="pointer-events-none fixed left-[20%] top-[-340px] h-[620px] w-[760px] rounded-full bg-white/[0.015] blur-[150px]" />
 
-      <div className="relative mx-auto max-w-[1180px] px-5 py-8 sm:px-8 md:px-10 md:py-12">
+      <div className="relative mx-auto max-w-[1180px] px-4 pb-28 pt-6 sm:px-8 sm:pt-8 md:px-10 md:pt-12 lg:pb-12">
         <button
           type="button"
           onClick={() => router.push("/")}
@@ -112,7 +112,7 @@ export default function ArchivedCoursesPage() {
           Back to courses
         </button>
 
-        <header className="mt-12 max-w-3xl border-b border-white/[0.065] pb-10">
+        <header className="mt-9 max-w-3xl border-b border-white/[0.065] pb-8 sm:mt-12 sm:pb-10">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.06] bg-white/[0.025] text-white/34">
               <Archive size={14} />
@@ -123,7 +123,7 @@ export default function ArchivedCoursesPage() {
             </p>
           </div>
 
-          <h1 className="mt-6 text-[42px] font-medium leading-[1] tracking-[-0.055em] sm:text-[54px]">
+          <h1 className="mt-5 text-[38px] font-medium leading-[1] tracking-[-0.052em] sm:mt-6 sm:text-[54px]">
             Past courses.
           </h1>
 

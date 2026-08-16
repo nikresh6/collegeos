@@ -158,24 +158,24 @@ export default function AssessmentLabPage() {
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-[#080809] text-white/40"><Loader2 className="animate-spin" size={16} /></main>;
 
   return (
-    <main className="min-h-screen bg-[#080809] px-5 pb-32 pt-6 text-[#F5F5F7] sm:px-8 lg:px-10">
+    <main className="min-h-screen bg-[#080809] px-4 pb-32 pt-6 text-[#F5F5F7] sm:px-8 lg:px-10 lg:pb-16">
       <div className="mx-auto max-w-[1280px]">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button onClick={() => router.push("/")} className="flex items-center gap-2 rounded-full border border-white/[.07] bg-white/[.02] px-3.5 py-2.5 text-[12px] text-white/48"><ArrowLeft size={14} /> Home</button>
-          <div className="flex gap-2">
-            <button onClick={() => setShowQuestion(true)} className="rounded-full border border-white/[.08] bg-white/[.025] px-4 py-2.5 text-[11px] text-white/65"><Plus size={12} className="mr-2 inline" />Enter question</button>
-            <button onClick={() => setShowUpload(true)} className="rounded-full bg-white px-4 py-2.5 text-[11px] font-medium text-black"><Upload size={12} className="mr-2 inline" />Train from source</button>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button onClick={() => setShowQuestion(true)} className="flex items-center justify-center rounded-full border border-white/[.08] bg-white/[.025] px-3 py-2.5 text-[10px] text-white/65 sm:px-4 sm:text-[11px]"><Plus size={12} className="mr-2" />Add question</button>
+            <button onClick={() => setShowUpload(true)} className="flex items-center justify-center rounded-full bg-white px-3 py-2.5 text-[10px] font-medium text-black sm:px-4 sm:text-[11px]"><Upload size={12} className="mr-2" />Upload source</button>
           </div>
         </div>
 
-        <header className="mt-12 grid gap-8 border-b border-white/[.065] pb-10 lg:grid-cols-[1fr_420px] lg:items-end">
+        <header className="mt-9 grid gap-7 border-b border-white/[.065] pb-8 sm:mt-12 sm:gap-8 sm:pb-10 lg:grid-cols-[1fr_420px] lg:items-end">
           <div>
             <div className="flex items-center gap-3"><SchoolMark size={40} quiet /><p className="text-[11px] font-semibold uppercase tracking-[.15em] text-white/38">Exam Intelligence</p></div>
-            <h1 className="mt-6 max-w-4xl text-[48px] font-medium leading-[.95] tracking-[-.06em] sm:text-[64px]">Teach CollegeOS<br />how your professor tests.</h1>
-            <p className="mt-5 max-w-2xl text-[15px] leading-7 text-white/44">Upload old tests, quizzes, study guides, or a quick photo. CollegeOS extracts the questions and learns the wording, difficulty, skills, and traps your next practice should imitate.</p>
+            <h1 className="mt-5 max-w-4xl text-[40px] font-medium leading-[.95] tracking-[-.057em] sm:mt-6 sm:text-[64px]">Teach CollegeOS<br />how your professor tests.</h1>
+            <p className="mt-4 max-w-2xl text-[13px] leading-6 text-white/42 sm:mt-5 sm:text-[15px] sm:leading-7 sm:text-white/44">Upload old tests, quizzes, study guides, or a quick photo. CollegeOS extracts the questions and learns the wording, difficulty, skills, and traps your next practice should imitate.</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 rounded-[24px] border border-white/[.07] bg-white/[.018] p-3">
-            {[[sources.length, "sources"], [totalQuestions, "questions"], [coursesTrained, "courses trained"]].map(([value, label]) => <div key={String(label)} className="rounded-[17px] border border-white/[.055] bg-black/15 px-3 py-4"><p className="text-[25px] font-medium tracking-[-.05em]" style={{ color: label === "questions" ? identity.primary : undefined }}>{value}</p><p className="mt-1 text-[9px] text-white/27">{label}</p></div>)}
+          <div className="grid grid-cols-3 gap-1.5 rounded-[20px] border border-white/[.07] bg-white/[.018] p-2 sm:gap-2 sm:rounded-[24px] sm:p-3">
+            {[[sources.length, "sources"], [totalQuestions, "questions"], [coursesTrained, "courses trained"]].map(([value, label]) => <div key={String(label)} className="rounded-[14px] border border-white/[.055] bg-black/15 px-2 py-3 sm:rounded-[17px] sm:px-3 sm:py-4"><p className="text-[22px] font-medium tracking-[-.05em] sm:text-[25px]" style={{ color: label === "questions" ? identity.primary : undefined }}>{value}</p><p className="mt-1 text-[8px] leading-3 text-white/27 sm:text-[9px]">{label}</p></div>)}
           </div>
         </header>
 

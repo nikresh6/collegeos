@@ -2136,7 +2136,7 @@ export default function CalendarPage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-[1280px] px-5 pb-24 pt-6 sm:px-8 md:px-10 md:pb-16 md:pt-10">
+        <div className="relative mx-auto max-w-[1280px] px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pt-10 lg:pb-16">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
@@ -2149,7 +2149,7 @@ export default function CalendarPage() {
               Home
             </button>
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
               <button
                 type="button"
                 onClick={() =>
@@ -2222,7 +2222,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          <header className="mt-12 grid gap-9 border-b border-white/[0.065] pb-10 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-end">
+          <header className="mt-9 grid gap-7 border-b border-white/[0.065] pb-8 sm:mt-12 sm:gap-9 sm:pb-10 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-end">
             <div>
               <div className="flex items-center gap-3">
                 <SchoolMark
@@ -2234,13 +2234,13 @@ export default function CalendarPage() {
                 </p>
               </div>
 
-              <h1 className="mt-6 max-w-4xl text-[48px] font-medium leading-[0.95] tracking-[-0.062em] sm:text-[62px]">
+              <h1 className="mt-5 max-w-4xl text-[40px] font-medium leading-[0.95] tracking-[-0.057em] sm:mt-6 sm:text-[62px]">
                 Plan the week.
                 <br className="hidden sm:block" />
                 Change it in seconds.
               </h1>
 
-              <p className="mt-5 max-w-2xl text-[15px] leading-7 text-white/44">
+              <p className="mt-4 max-w-2xl text-[13px] leading-6 text-white/42 sm:mt-5 sm:text-[15px] sm:leading-7 sm:text-white/44">
                 Your classes, deadlines, personal time, and AI study blocks live
                 on one canvas. Click to create, drag to move, stretch to resize,
                 and double-click anything you own to edit it.
@@ -2268,8 +2268,8 @@ export default function CalendarPage() {
                 />
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-[15px] border border-white/[0.055] bg-black/10 px-3 py-3">
+              <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="rounded-[14px] border border-white/[0.055] bg-black/10 px-2.5 py-3 sm:rounded-[15px] sm:px-3">
                   <p className="text-[22px] font-medium tracking-[-0.045em]">
                     {visibleItems.length}
                   </p>
@@ -2278,7 +2278,7 @@ export default function CalendarPage() {
                   </p>
                 </div>
 
-                <div className="rounded-[15px] border border-white/[0.055] bg-black/10 px-3 py-3">
+                <div className="rounded-[14px] border border-white/[0.055] bg-black/10 px-2.5 py-3 sm:rounded-[15px] sm:px-3">
                   <p
                     className="text-[22px] font-medium tracking-[-0.045em]"
                     style={{
@@ -2293,7 +2293,7 @@ export default function CalendarPage() {
                   </p>
                 </div>
 
-                <div className="rounded-[15px] border border-white/[0.055] bg-black/10 px-3 py-3">
+                <div className="rounded-[14px] border border-white/[0.055] bg-black/10 px-2.5 py-3 sm:rounded-[15px] sm:px-3">
                   <p className="text-[22px] font-medium tracking-[-0.045em]">
                     {visibleStudyMinutes > 0
                       ? Math.round(
@@ -2311,7 +2311,7 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between rounded-[15px] border border-white/[0.055] bg-black/10 px-3 py-2.5">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[15px] border border-white/[0.055] bg-black/10 px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   <Flame size={13} style={{ color: identity.primary }} />
                   <p className="text-[10px] font-medium text-white/48">

@@ -298,7 +298,7 @@ export default function GradesPage() {
     <main className="relative min-h-screen overflow-x-hidden bg-[#080809] text-[#F5F5F7]">
       <div className="pointer-events-none fixed inset-x-0 top-0 h-[520px] bg-[radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.045),transparent_58%)]" />
 
-      <div className="relative mx-auto max-w-[1320px] px-5 py-8 sm:px-8 md:px-10 md:py-12">
+      <div className="relative mx-auto max-w-[1320px] px-4 pb-28 pt-6 sm:px-8 sm:pt-8 md:px-10 md:pt-12 lg:pb-12">
         <button
           type="button"
           onClick={() => router.push("/")}
@@ -308,7 +308,7 @@ export default function GradesPage() {
           Home
         </button>
 
-        <header className="relative mt-12 overflow-hidden border-b border-white/[0.065] pb-10 pt-2">
+        <header className="relative mt-9 overflow-hidden border-b border-white/[0.065] pb-8 pt-2 sm:mt-12 sm:pb-10">
           <SchoolLandmarkBackdrop
             opacity={0.055}
             align="right"
@@ -325,7 +325,7 @@ export default function GradesPage() {
                 </div>
               </div>
 
-              <h1 className="mt-5 max-w-4xl text-[50px] font-medium leading-[0.97] tracking-[-0.062em] sm:text-[64px]">
+              <h1 className="mt-5 max-w-4xl text-[40px] font-medium leading-[0.97] tracking-[-0.057em] sm:text-[64px]">
                 Every course, one scoreboard.
               </h1>
 
@@ -362,7 +362,7 @@ export default function GradesPage() {
             </p>
           </div>
         ) : (
-          <section className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <section className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
             <div>
               <div className="mb-5 flex items-end justify-between gap-5">
                 <div>

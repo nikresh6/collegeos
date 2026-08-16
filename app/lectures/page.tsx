@@ -1024,7 +1024,7 @@ export default function LecturesPage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-[1240px] px-5 pb-24 pt-6 sm:px-8 md:px-10 md:pb-16 md:pt-10">
+        <div className="relative mx-auto max-w-[1240px] px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pt-10 lg:pb-16">
           <button
             type="button"
             onClick={() =>
@@ -1038,7 +1038,7 @@ export default function LecturesPage() {
             Home
           </button>
 
-          <header className="mt-12 grid gap-9 border-b border-white/[0.065] pb-10 lg:grid-cols-[1fr_360px] lg:items-end">
+          <header className="mt-9 grid gap-7 border-b border-white/[0.065] pb-8 sm:mt-12 sm:gap-9 sm:pb-10 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
               <div className="flex items-center gap-3">
                 <SchoolMark
@@ -1050,13 +1050,13 @@ export default function LecturesPage() {
                 </p>
               </div>
 
-              <h1 className="mt-6 max-w-4xl text-[50px] font-medium leading-[0.96] tracking-[-0.062em] sm:text-[64px]">
+              <h1 className="mt-5 max-w-4xl text-[40px] font-medium leading-[0.96] tracking-[-0.057em] sm:mt-6 sm:text-[64px]">
                 Record once.
                 <br className="hidden sm:block" />{" "}
                 Study from it all week.
               </h1>
 
-              <p className="mt-5 max-w-2xl text-[14px] leading-7 text-white/44">
+              <p className="mt-4 max-w-2xl text-[13px] leading-6 text-white/42 sm:mt-5 sm:text-[14px] sm:leading-7 sm:text-white/44">
                 Record live in a dedicated lecture room with notes beside the
                 recorder, or upload existing audio. Recording continues while
                 you navigate away from the room.

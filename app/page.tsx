@@ -891,7 +891,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.055] bg-[#080809]/85 px-5 py-4 backdrop-blur-2xl lg:hidden"
+              className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.055] bg-[#080809]/88 px-4 py-3 backdrop-blur-2xl sm:px-5 sm:py-4 lg:hidden"
             >
               <div className="flex items-center gap-2.5">
                 <SchoolMark size={32} quiet />
@@ -934,7 +934,7 @@ export default function Dashboard() {
               </div>
             </motion.div>
 
-            <div className="mx-auto max-w-[1480px] px-5 pb-32 pt-8 sm:px-8 md:px-10 md:pb-16 md:pt-7 lg:px-14 xl:px-16">
+            <div className="mx-auto max-w-[1480px] px-4 pb-24 pt-6 sm:px-8 sm:pb-32 sm:pt-8 md:px-10 md:pb-24 md:pt-7 lg:px-14 lg:pb-16 xl:px-16">
               {/* Desktop Utility Bar */}
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
@@ -1015,7 +1015,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08, ...revealTransition }}
               >
-                <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+                <div className="flex flex-col gap-6 sm:gap-8 xl:flex-row xl:items-end xl:justify-between">
                   <div className="max-w-4xl">
                     <div className="mb-5 flex flex-wrap items-center gap-3">
                       <motion.div
@@ -1055,7 +1055,7 @@ export default function Dashboard() {
                         duration: 0.72,
                         ease: [0.22, 1, 0.36, 1],
                       }}
-                      className="text-[52px] font-medium leading-[0.96] tracking-[-0.062em] sm:text-[64px] lg:text-[74px]"
+                      className="text-[43px] font-medium leading-[0.96] tracking-[-0.058em] sm:text-[64px] lg:text-[74px]"
                     >
                       {greeting}
                     </motion.h1>
@@ -1068,14 +1068,14 @@ export default function Dashboard() {
                         duration: 0.64,
                         ease: [0.22, 1, 0.36, 1],
                       }}
-                      className="mt-5 max-w-2xl text-[16px] leading-7 text-white/54"
+                      className="mt-4 max-w-2xl text-[14px] leading-6 text-white/48 sm:mt-5 sm:text-[16px] sm:leading-7 sm:text-white/54"
                     >
                       Keep the semester moving in one direction. Your grades,
                       deadlines, and GPA goal now meet in the same place.
                     </motion.p>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-6 border-t border-white/[0.065] pt-5 xl:min-w-[390px] xl:border-l xl:border-t-0 xl:pl-7 xl:pt-0">
+                  <div className="grid grid-cols-3 gap-3 border-t border-white/[0.065] pt-5 sm:gap-6 xl:min-w-[390px] xl:border-l xl:border-t-0 xl:pl-7 xl:pt-0">
                     <Stat
                       label="Courses"
                       value={String(courses.length)}
@@ -1101,7 +1101,7 @@ export default function Dashboard() {
                     duration: 0.7,
                     ease: [0.22, 1, 0.36, 1],
                   }}
-                  className="relative mt-10 overflow-hidden rounded-[32px] border border-white/[0.075] bg-[#101012]"
+                  className="relative mt-7 overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#101012] sm:mt-10 sm:rounded-[32px]"
                 >
                   <div
                     className="pointer-events-none absolute inset-x-0 top-0 h-[260px] opacity-[0.13]"
@@ -1113,9 +1113,9 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => router.push("/grades")}
-                    className="group relative block w-full p-6 text-left sm:p-8 lg:p-9"
+                    className="group relative block w-full p-5 text-left sm:p-8 lg:p-9"
                   >
-                    <div className="grid gap-9 lg:grid-cols-[minmax(0,1fr)_230px] lg:items-center">
+                    <div className="grid gap-6 sm:gap-9 lg:grid-cols-[minmax(0,1fr)_230px] lg:items-center">
                       <div>
                         <div className="flex flex-wrap items-center gap-3">
                           <div
@@ -1164,7 +1164,7 @@ export default function Dashboard() {
                             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/36">
                               Current
                             </p>
-                            <p className="mt-1 text-[76px] font-medium leading-[0.88] tracking-[-0.08em] text-white/94 sm:text-[92px]">
+                            <p className="mt-1 text-[62px] font-medium leading-[0.88] tracking-[-0.075em] text-white/94 sm:text-[92px]">
                               {semesterGpa === null
                                 ? "--"
                                 : semesterGpa.toFixed(2)}
@@ -1180,7 +1180,7 @@ export default function Dashboard() {
                               Target
                             </p>
                             <p
-                              className="mt-1 text-[48px] font-medium leading-none tracking-[-0.065em]"
+                              className="mt-1 text-[40px] font-medium leading-none tracking-[-0.06em] sm:text-[48px]"
                               style={{ color: schoolTheme.accent }}
                             >
                               {targetGpa.toFixed(2)}
@@ -1188,7 +1188,7 @@ export default function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="mt-8 max-w-3xl">
+                        <div className="mt-6 max-w-3xl sm:mt-8">
                           <div className="relative h-3 overflow-hidden rounded-full bg-white/[0.055]">
                             <motion.div
                               initial={{ width: 0 }}
@@ -1346,7 +1346,7 @@ export default function Dashboard() {
               </motion.section>
 
               {/* School Line */}
-              <div className="relative my-12 h-px bg-white/[0.06]">
+              <div className="relative my-9 h-px bg-white/[0.06] sm:my-12">
                 <motion.div
                   className="absolute left-0 top-0 h-px"
                   style={{ backgroundColor: schoolTheme.accent }}
@@ -1385,10 +1385,10 @@ export default function Dashboard() {
                     onClick={() => setShowAddCourse(true)}
                     whileHover={{ y: -1, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-                    className="group flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-medium text-black transition duration-200 hover:bg-white/88"
+                    className="group flex shrink-0 items-center gap-2 rounded-full bg-white px-3.5 py-2.5 text-[12px] font-medium text-black transition duration-200 hover:bg-white/88 sm:px-4 sm:text-[13px]"
                   >
                     <Plus size={15} />
-                    Add course
+                    Add<span className="hidden sm:inline"> course</span>
                   </motion.button>
                 </div>
 
@@ -1443,7 +1443,7 @@ export default function Dashboard() {
                   duration: 0.65,
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                className="mt-14 grid gap-12 lg:grid-cols-[1.15fr_.85fr]"
+                className="mt-10 grid gap-9 sm:mt-14 sm:gap-12 lg:grid-cols-[1.15fr_.85fr]"
               >
                 {/* Upcoming */}
                 <div>
@@ -1694,71 +1694,6 @@ export default function Dashboard() {
               </motion.section>
             </div>
 
-            {/* Mobile Nav */}
-            <motion.nav
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                delay: 0.18,
-                duration: 0.5,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              data-mobile-dock="true"
-              className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/[0.06] bg-[#0B0B0D]/96 px-2 pt-2.5 shadow-[0_-12px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl lg:hidden sm:px-10 md:px-24"
-              style={{
-                paddingBottom: "max(4px, env(safe-area-inset-bottom))",
-                transform: "translateZ(0)",
-              }}
-            >
-              <MobileNavigationItem
-                icon={Home}
-                label="Home"
-                active
-                onClick={() => router.push("/")}
-              />
-
-              <MobileNavigationItem
-                icon={BookOpen}
-                label="Courses"
-                onClick={() => router.push("/courses")}
-              />
-
-              <MobileNavigationItem
-                icon={Sparkles}
-                label="Study"
-                onClick={() => router.push("/study")}
-              />
-
-              <MobileNavigationItem
-                icon={LibraryBig}
-                label="Notes"
-                onClick={() => router.push("/notes")}
-              />
-
-              <MobileNavigationItem
-                icon={FileQuestion}
-                label="Exams"
-                onClick={() => router.push("/assessment-lab")}
-              />
-
-              <MobileNavigationItem
-                icon={Mic2}
-                label="Lectures"
-                onClick={() => router.push("/lectures")}
-              />
-
-              <MobileNavigationItem
-                icon={CalendarDays}
-                label="Calendar"
-                onClick={() => router.push("/calendar")}
-              />
-
-              <MobileNavigationItem
-                icon={TrendingUp}
-                label="Grades"
-                onClick={() => router.push("/grades")}
-              />
-            </motion.nav>
           </section>
         </div>
 
@@ -2430,52 +2365,6 @@ function NavigationItem({
           </motion.span>
         )}
       </AnimatePresence>
-    </motion.button>
-  );
-}
-
-function MobileNavigationItem({
-  icon: Icon,
-  label,
-  active = false,
-  onClick,
-}: {
-  icon: React.ElementType;
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  const schoolTheme = useSchoolTheme();
-
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.94 }}
-      className={`relative flex min-w-[40px] flex-1 flex-col items-center gap-1 rounded-[10px] px-0.5 py-1.5 sm:min-w-[58px] sm:flex-none sm:px-2 ${
-        active
-          ? "text-white"
-          : "text-white/40"
-      }`}
-    >
-      <Icon
-        size={18}
-        strokeWidth={active ? 2.2 : 1.7}
-      />
-
-      <span className="text-[8px] font-medium sm:text-[11px]">
-        {label}
-      </span>
-
-      {active && (
-        <motion.div
-          layoutId="mobile-nav-active"
-          className="absolute -top-2.5 h-[2px] w-5 rounded-full"
-          style={{
-            backgroundColor: schoolTheme.accent,
-          }}
-        />
-      )}
     </motion.button>
   );
 }

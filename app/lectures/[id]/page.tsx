@@ -2135,7 +2135,7 @@ export default function LectureSummaryPage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-[1320px] px-5 pb-24 pt-6 sm:px-8 md:px-10 md:pt-9">
+        <div className="relative mx-auto max-w-[1320px] px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pt-9 lg:pb-16">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
@@ -2268,7 +2268,7 @@ export default function LectureSummaryPage() {
               </div>
             </div>
 
-            <h1 className="mt-6 max-w-[900px] text-[42px] font-medium leading-[0.98] tracking-[-0.058em] sm:text-[58px]">
+            <h1 className="mt-5 max-w-[900px] text-[38px] font-medium leading-[0.98] tracking-[-0.054em] sm:mt-6 sm:text-[58px]">
               {analysis?.title ||
                 lecture.title}
             </h1>

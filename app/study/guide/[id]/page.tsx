@@ -519,7 +519,7 @@ export default function StudyGuidePage() {
           }}
         />
 
-        <div className="relative mx-auto max-w-[1080px] px-5 pb-24 pt-6 sm:px-8 md:px-10 md:pt-10">
+        <div className="relative mx-auto max-w-[1080px] px-4 pb-28 pt-6 sm:px-8 md:px-10 md:pt-10 lg:pb-16">
           <div className="study-print-hide flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
@@ -569,7 +569,7 @@ export default function StudyGuidePage() {
             </div>
           </div>
 
-          <header className="mt-12 border-b border-white/[0.06] pb-9">
+          <header className="mt-9 border-b border-white/[0.06] pb-8 sm:mt-12 sm:pb-9">
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className="rounded-full px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.1em]"
@@ -597,7 +597,7 @@ export default function StudyGuidePage() {
               </span>
             </div>
 
-            <h1 className="mt-6 max-w-4xl text-[44px] font-medium leading-[0.98] tracking-[-0.058em] sm:text-[58px]">
+            <h1 className="mt-5 max-w-4xl text-[38px] font-medium leading-[0.98] tracking-[-0.054em] sm:mt-6 sm:text-[58px]">
               {content.title ||
                 guide.title}
             </h1>
