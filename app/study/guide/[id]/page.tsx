@@ -930,6 +930,9 @@ export default function StudyGuidePage() {
           @media print {
             html, body {
               background: white !important;
+              color: #171717 !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
 
             .study-print-hide {
@@ -943,15 +946,27 @@ export default function StudyGuidePage() {
 
             #study-guide-root * {
               color: #111 !important;
+              opacity: 1 !important;
+              filter: none !important;
               box-shadow: none !important;
               text-shadow: none !important;
             }
 
+            #study-guide-root > [aria-hidden="true"] {
+              display: none !important;
+            }
+
             #study-guide-root article,
             #study-guide-root section {
-              background: transparent !important;
+              background: white !important;
               border-color: #dedede !important;
             }
+
+            #study-guide-root h1 { font-size: 34px !important; line-height: 1.08 !important; }
+            #study-guide-root h2 { font-size: 23px !important; }
+            #study-guide-root h3 { font-size: 18px !important; }
+            #study-guide-root p, #study-guide-root li { font-size: 11px !important; line-height: 1.6 !important; }
+            #study-guide-root a { color: #174ea6 !important; text-decoration: underline !important; }
 
             @page {
               margin: 0.55in;

@@ -12,6 +12,7 @@ import {
   BrainCircuit,
   Check,
   ChevronRight,
+  Download,
   FileText,
   Loader2,
   Plus,
@@ -37,6 +38,9 @@ import {
   SourceProvenance,
 } from "../../components/source-provenance";
 import { NotebookTools } from "../../components/notebook-tools";
+import { RichNoteEditor } from "../../components/rich-note-editor";
+import { noteContentToPlainText, noteWordCount } from "../../lib/note-content";
+import { printNote } from "../../lib/print-note";
 
 type Course = {
   id: string;
@@ -95,20 +99,6 @@ type SaveState =
 
 const NOTE_SELECT =
   "id, user_id, course_id, lecture_id, title, raw_content, created_at, updated_at, enhanced_content, enhanced_at, enhancement_source_updated_at, topic_analysis";
-
-function wordCount(
-  value: string,
-) {
-  const clean =
-    value.trim();
-
-  return clean
-    ? clean
-        .split(/\s+/)
-        .filter(Boolean)
-        .length
-    : 0;
-}
 
 function noteSignature(
   note: {
@@ -314,9 +304,6 @@ export default function NotesPage() {
       typeof setTimeout
     > | null>(null);
 
-  const editorRef =
-    useRef<HTMLTextAreaElement | null>(null);
-
   const lastSavedRef =
     useRef("");
 
@@ -423,7 +410,7 @@ export default function NotesPage() {
 
           return [
             note.title,
-            note.raw_content,
+            noteContentToPlainText(note.raw_content),
             note.enhanced_content,
             course?.code,
             course?.name,
@@ -1835,7 +1822,7 @@ export default function NotesPage() {
                         </div>
 
                         <p className="mt-1.5 line-clamp-2 text-[7px] leading-4 text-white/14">
-                          {note.raw_content ||
+                          {noteContentToPlainText(note.raw_content) ||
                             "Empty note"}
                         </p>
                       </button>
@@ -1923,14 +1910,33 @@ export default function NotesPage() {
                       </select>
                     </div>
 
-                    <div
-                      className={`flex items-center gap-1.5 text-[7px] ${
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          printNote({
+                            title: draftTitle.trim() || "Untitled note",
+                            content: draftContent,
+                            course: selectedCourse
+                              ? `${selectedCourse.code} · ${selectedCourse.name}`
+                              : "CollegeOS Notebook",
+                            updatedAt: activeNote.updated_at,
+                            accent,
+                          })
+                        }
+                        className="flex items-center gap-1.5 rounded-full border border-white/[0.055] bg-white/[0.008] px-3 py-2 text-[8px] text-white/30 transition hover:bg-white/[0.03] hover:text-white/60"
+                      >
+                        <Download size={9} />
+                        Export PDF
+                      </button>
+                      <div
+                        className={`flex items-center gap-1.5 text-[7px] ${
                         saveState ===
                         "error"
                           ? "text-red-200/50"
                           : "text-white/16"
                       }`}
-                    >
+                      >
                       {saveState ===
                       "saving" ? (
                         <Loader2
@@ -1954,6 +1960,7 @@ export default function NotesPage() {
                               "error"
                             ? "Save failed"
                             : "Saved"}
+                      </div>
                     </div>
                   </div>
 
@@ -2016,39 +2023,28 @@ export default function NotesPage() {
 
                   </div>
 
-                  {editorMode === "original" && userId && (
-                    <NotebookTools
-                      noteId={activeNote.id}
-                      userId={userId}
-                      courseId={draftCourseId}
-                      accent={accent}
-                      value={draftContent}
-                      onChange={setDraftContent}
-                      editorRef={editorRef}
-                    />
-                  )}
-
                   {editorMode ===
                   "original" ? (
-                    <textarea
-                      ref={editorRef}
-                      value={
-                        draftContent
-                      }
-                      onChange={(
-                        event,
-                      ) =>
-                        setDraftContent(
-                          event.target
-                            .value,
-                        )
-                      }
+                    <>
+                    <RichNoteEditor
+                      value={draftContent}
+                      onChange={setDraftContent}
                       onBlur={() =>
                         void saveNow()
                       }
                       placeholder="Start anywhere — headings, concepts, equations, questions, professor emphasis, or a checklist for what to review…"
-                      className="student-notebook-paper mt-4 min-h-[62vh] w-full resize-none rounded-[18px] border border-white/[0.035] bg-white/[0.006] px-5 py-4 text-[14px] leading-8 text-white/55 outline-none placeholder:text-white/13"
+                      accent={accent}
+                      className="mt-4"
                     />
+                    {userId && (
+                      <NotebookTools
+                        noteId={activeNote.id}
+                        userId={userId}
+                        courseId={draftCourseId}
+                        accent={accent}
+                      />
+                    )}
+                    </>
                   ) : (
                     <div className="mt-5 min-h-[62vh] whitespace-pre-wrap text-[14px] leading-8 text-white/48">
                       {activeNote.enhanced_content ||
@@ -2058,12 +2054,12 @@ export default function NotesPage() {
 
                   <div className="mt-5 flex items-center justify-between border-t border-white/[0.045] pt-4">
                     <p className="text-[7px] text-white/13">
-                      {wordCount(
+                      {noteWordCount(
                         draftContent,
                       )}{" "}
                       words ·{" "}
                       {
-                        draftContent.length
+                        noteContentToPlainText(draftContent).length
                       }{" "}
                       characters
                     </p>

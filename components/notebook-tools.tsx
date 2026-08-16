@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { Bold, Camera, FileImage, Heading2, Highlighter, ImagePlus, List, ListChecks, Loader2, Quote, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, FileImage, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type Attachment = {
@@ -14,14 +14,11 @@ type Attachment = {
   url?: string;
 };
 
-export function NotebookTools({ noteId, userId, courseId, accent, value, onChange, editorRef }: {
+export function NotebookTools({ noteId, userId, courseId, accent }: {
   noteId: string;
   userId: string;
   courseId: string;
   accent: string;
-  value: string;
-  onChange: (value: string) => void;
-  editorRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const uploadRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -50,27 +47,6 @@ export function NotebookTools({ noteId, userId, courseId, accent, value, onChang
   // Attachment rows and their signed URLs are external state for this note.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadAttachments(); }, [loadAttachments]);
-
-  function format(kind: "heading" | "bold" | "highlight" | "list" | "check" | "quote") {
-    const editor = editorRef.current;
-    const start = editor?.selectionStart ?? value.length;
-    const end = editor?.selectionEnd ?? start;
-    const selected = value.slice(start, end);
-    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    let next = value;
-    let cursor = start;
-    if (kind === "bold" || kind === "highlight") {
-      const marker = kind === "bold" ? "**" : "==";
-      next = `${value.slice(0, start)}${marker}${selected || (kind === "bold" ? "important" : "key idea")}${marker}${value.slice(end)}`;
-      cursor = start + marker.length + (selected || (kind === "bold" ? "important" : "key idea")).length + marker.length;
-    } else {
-      const prefix = kind === "heading" ? "## " : kind === "list" ? "- " : kind === "check" ? "- [ ] " : "> ";
-      next = `${value.slice(0, lineStart)}${prefix}${value.slice(lineStart)}`;
-      cursor = start + prefix.length;
-    }
-    onChange(next);
-    requestAnimationFrame(() => { editor?.focus(); editor?.setSelectionRange(cursor, cursor); });
-  }
 
   async function upload(file: File | null) {
     if (!file) return;
@@ -112,19 +88,18 @@ export function NotebookTools({ noteId, userId, courseId, accent, value, onChang
     setAttachments((current) => current.filter((item) => item.id !== attachment.id));
   }
 
-  const actions = [
-    ["heading", Heading2, "Heading"], ["bold", Bold, "Bold"], ["highlight", Highlighter, "Highlight"],
-    ["list", List, "List"], ["check", ListChecks, "Checklist"], ["quote", Quote, "Quote"],
-  ] as const;
-
   return <div className="mt-4">
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[16px] border bg-white/[.012] p-2" style={{ borderColor: `${accent}18` }}>
-      {actions.map(([kind, Icon, label]) => <button key={kind} type="button" onClick={() => format(kind)} title={label} className="flex h-8 items-center gap-1.5 rounded-[10px] px-2.5 text-[8px] text-white/31 transition hover:bg-white/[.045] hover:text-white/65"><Icon size={11} /><span className="hidden sm:inline">{label}</span></button>)}
-      <span className="mx-1 h-5 w-px bg-white/[.06]" />
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border bg-white/[.012] px-3 py-2.5" style={{ borderColor: `${accent}18` }}>
+      <div>
+        <p className="text-[8px] font-medium text-white/40">Paper notebook</p>
+        <p className="mt-0.5 text-[7px] text-white/18">Add photos or scan pages into this note.</p>
+      </div>
+      <div className="flex items-center gap-1.5">
       <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={(event) => { void upload(event.target.files?.[0] ?? null); event.target.value = ""; }} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => { void upload(event.target.files?.[0] ?? null); event.target.value = ""; }} />
       <button type="button" disabled={uploading} onClick={() => uploadRef.current?.click()} className="flex h-8 items-center gap-1.5 rounded-[10px] px-2.5 text-[8px] text-white/31 transition hover:bg-white/[.045] hover:text-white/65 disabled:opacity-40">{uploading ? <Loader2 size={11} className="animate-spin" /> : <ImagePlus size={11} />}Add page</button>
-      <button type="button" disabled={uploading} onClick={() => cameraRef.current?.click()} className="flex h-8 items-center gap-1.5 rounded-[10px] px-2.5 text-[8px] text-white/31 transition hover:bg-white/[.045] hover:text-white/65 disabled:opacity-40"><Camera size={11} />Scan notes</button>
+      <button type="button" disabled={uploading} onClick={() => cameraRef.current?.click()} className="flex h-8 items-center gap-1.5 rounded-[10px] px-2.5 text-[8px] text-white/31 transition hover:bg-white/[.045] hover:text-white/65 disabled:opacity-40"><Camera size={11} />Scan</button>
+      </div>
     </div>
 
     {error && <p className="mt-2 text-[8px] text-red-200/55">{error}</p>}

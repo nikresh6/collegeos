@@ -41,6 +41,8 @@ import {
 import {
   useLectureRecording,
 } from "../../../components/lecture-recording-provider";
+import { RichNoteEditor } from "../../../components/rich-note-editor";
+import { noteWordCount } from "../../../lib/note-content";
 
 type SaveState =
   | "saved"
@@ -1097,7 +1099,7 @@ export default function LectureRecordingPage() {
                         Live notes
                       </p>
                       <p className="mt-1 text-[8px] text-white/24">
-                        Your own notes, saved continuously
+                        The full notebook, synchronized with this recording
                       </p>
                     </div>
                   </div>
@@ -1157,26 +1159,16 @@ export default function LectureRecordingPage() {
                     className="w-full border-0 bg-transparent text-[26px] font-medium tracking-[-0.04em] text-white/86 outline-none placeholder:text-white/14 sm:text-[32px]"
                   />
 
-                  <textarea
-                    value={
-                      noteContent
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setNoteContent(
-                        event.target
-                          .value,
-                      )
-                    }
+                  <RichNoteEditor
+                    value={noteContent}
+                    onChange={setNoteContent}
                     onBlur={() =>
                       void saveNote()
                     }
-                    placeholder={
-                      "Write exactly what you want to remember.\n\n• Important idea\n• Professor says this will be on the exam\n• Question to revisit\n• Formula or example\n\nAI enhancement comes later. For now, capture what matters."
-                    }
-                    spellCheck
-                    className="mt-6 min-h-[430px] flex-1 resize-none border-0 bg-transparent text-[14px] leading-7 text-white/58 outline-none placeholder:text-white/13 sm:text-[15px] sm:leading-8"
+                    placeholder="Capture key ideas, professor emphasis, questions, examples, and action items while the lecture records…"
+                    accent={accent}
+                    compact
+                    className="mt-6 min-h-0 flex-1"
                   />
 
                   {noteError && (
@@ -1196,12 +1188,7 @@ export default function LectureRecordingPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
                     <p className="text-[8px] text-white/18">
                       {
-                        noteContent
-                          .trim()
-                          .split(/\s+/)
-                          .filter(
-                            Boolean,
-                          ).length
+                        noteWordCount(noteContent)
                       }{" "}
                       words
                     </p>

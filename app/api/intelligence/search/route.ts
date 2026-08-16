@@ -4,6 +4,7 @@ import {
 import {
   userContext,
 } from "../../../../lib/server-auth";
+import { noteContentToPlainText } from "../../../../lib/note-content";
 
 export const runtime =
   "nodejs";
@@ -864,10 +865,7 @@ async function collectionResults({
           noteCourse?.color ??
           null,
         meta:
-          note.raw_content
-            ?.trim()
-            .slice(0, 120) ??
-          null,
+          noteContentToPlainText(note.raw_content).slice(0, 120) || null,
       });
     }
 
@@ -1752,10 +1750,7 @@ export async function GET(
           course?.color ??
           null,
         meta:
-          note.raw_content
-            ?.trim()
-            .slice(0, 120) ??
-          null,
+          noteContentToPlainText(note.raw_content).slice(0, 120) || null,
       });
     }
 

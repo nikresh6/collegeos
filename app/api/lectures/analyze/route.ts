@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   groq,
 } from "../../../../lib/ai/groq";
+import { noteContentToPlainText } from "../../../../lib/note-content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -2941,7 +2942,7 @@ export async function POST(
               : "Lecture note",
           rawContent:
             typeof note.raw_content === "string"
-              ? note.raw_content.trim()
+              ? noteContentToPlainText(note.raw_content)
               : "",
         }))
         .filter((note) =>

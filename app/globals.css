@@ -44,6 +44,215 @@ body {
   background-position: 0 0, 0 0;
 }
 
+.premium-note-shell {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--note-accent) 13%, rgba(255,255,255,.035));
+  border-radius: 20px;
+  background: rgba(255,255,255,.008);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.018);
+}
+
+.premium-note-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  min-height: 45px;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  background: rgba(14,14,16,.94);
+  scrollbar-width: none;
+  backdrop-filter: blur(18px);
+}
+
+.premium-note-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.premium-note-toolbar button {
+  display: flex;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(255,255,255,.32);
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.premium-note-toolbar button:hover,
+.premium-note-toolbar button.is-active,
+.premium-note-toolbar button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--note-accent) 13%, rgba(255,255,255,.025));
+  color: color-mix(in srgb, var(--note-accent) 75%, white);
+}
+
+.premium-note-toolbar button:active {
+  transform: scale(.94);
+}
+
+.premium-note-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  flex: 0 0 auto;
+  background: rgba(255,255,255,.06);
+}
+
+.premium-note-editor {
+  min-height: 62vh;
+  padding: 27px 30px 80px;
+  background-image: linear-gradient(to bottom, transparent 31px, rgba(255,255,255,.038) 32px);
+  background-size: 100% 32px;
+  color: rgba(255,255,255,.66);
+  font-size: 15px;
+  line-height: 32px;
+  outline: none;
+  caret-color: color-mix(in srgb, var(--note-accent) 80%, white);
+}
+
+.premium-note-editor-compact {
+  min-height: 430px;
+  height: 100%;
+  padding: 24px 26px 80px;
+}
+
+.premium-note-editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255,255,255,.14);
+  pointer-events: none;
+}
+
+.premium-note-editor p,
+.premium-note-editor div,
+.premium-note-editor ul,
+.premium-note-editor ol,
+.premium-note-editor blockquote,
+.premium-note-editor pre {
+  margin: 0 0 12px;
+}
+
+.premium-note-editor h1,
+.premium-note-editor h2,
+.premium-note-editor h3 {
+  margin: 22px 0 10px;
+  color: rgba(255,255,255,.9);
+  font-weight: 600;
+  letter-spacing: -.035em;
+}
+
+.premium-note-editor h2 {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.premium-note-editor ul,
+.premium-note-editor ol {
+  padding-left: 27px;
+}
+
+.premium-note-editor li {
+  padding-left: 4px;
+}
+
+.premium-note-editor blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--note-accent) 55%, transparent);
+  padding: 4px 0 4px 18px;
+  color: rgba(255,255,255,.48);
+  font-style: italic;
+}
+
+.premium-note-editor pre {
+  overflow-x: auto;
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 13px;
+  background: rgba(0,0,0,.24);
+  padding: 12px 15px;
+  color: rgba(255,255,255,.64);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 21px;
+}
+
+.premium-note-editor mark,
+.premium-note-editor [style*="background-color"] {
+  border-radius: 4px;
+  padding: 1px 2px;
+  color: inherit;
+}
+
+.premium-note-editor a {
+  color: color-mix(in srgb, var(--note-accent) 80%, white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.premium-note-editor [data-note-check] {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.premium-note-editor [data-note-checkbox] {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  margin-top: 6px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 6px;
+  color: transparent;
+  font-size: 11px;
+  line-height: 1;
+  transition: all 150ms ease;
+}
+
+.premium-note-editor [data-note-check="true"] [data-note-checkbox] {
+  border-color: var(--note-accent);
+  background: var(--note-accent);
+  color: #080809;
+}
+
+.premium-note-editor [data-note-check="true"] > span:last-child {
+  color: rgba(255,255,255,.3);
+  text-decoration: line-through;
+}
+
+@media (max-width: 640px) {
+  .premium-note-editor {
+    padding: 22px 20px 70px;
+  }
+}
+
+@media print {
+  .premium-note-toolbar {
+    display: none !important;
+  }
+
+  .premium-note-shell,
+  .premium-note-editor {
+    min-height: 0 !important;
+    border: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    color: #171717 !important;
+  }
+
+  .premium-note-editor * {
+    color: #171717 !important;
+    opacity: 1 !important;
+  }
+}
+
 ::selection {
   background: color-mix(in srgb, var(--foreground) 24%, transparent);
 }
