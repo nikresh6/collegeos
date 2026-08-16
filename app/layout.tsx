@@ -24,6 +24,7 @@ import {
 import {
   AssessmentFeedbackPrompt,
 } from "../components/assessment-feedback-prompt";
+import { GlobalNavigation } from "../components/global-navigation";
 
 export const metadata:
   Metadata = {
@@ -58,6 +59,7 @@ export default function RootLayout({
             <AttentionCenter />
             <CommandCenter />
             <AssessmentFeedbackPrompt />
+            <GlobalNavigation />
           </LectureRecordingProvider>
         </SchoolIdentityProvider>
       </body>

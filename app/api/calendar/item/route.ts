@@ -158,6 +158,35 @@ async function logStudyBehavior({
 
 const ITEM_SELECT = "id, user_id, course_id, unit_id, title, item_type, starts_at, ends_at, all_day, location, notes, flexibility, status, source, topic_ids, color_override, planner_locked, user_modified_at";
 
+async function awardStudyCompletion(
+  supabase: ReturnType<typeof createUserClient>,
+  userId: string,
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const { data: current, error: readError } = await supabase
+    .from("student_progress")
+    .select("xp, current_streak, longest_streak, last_completion_on")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (readError) throw readError;
+  const alreadyToday = current?.last_completion_on === today;
+  const nextStreak = alreadyToday
+    ? Number(current?.current_streak ?? 1)
+    : current?.last_completion_on === yesterday
+      ? Number(current?.current_streak ?? 0) + 1
+      : 1;
+  const { error } = await supabase.from("student_progress").upsert({
+    user_id: userId,
+    xp: Number(current?.xp ?? 0) + 25,
+    current_streak: nextStreak,
+    longest_streak: Math.max(Number(current?.longest_streak ?? 0), nextStreak),
+    last_completion_on: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+
 export async function POST(request: Request) {
   const context = await getUserContext(request);
   if ("error" in context) return context.error;
@@ -400,6 +429,13 @@ export async function PATCH(request: Request) {
             userModified: true,
           },
         });
+
+        if (eventType === "completed") {
+          await awardStudyCompletion(
+            context.supabase,
+            context.user.id,
+          );
+        }
       }
     }
 

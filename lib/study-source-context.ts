@@ -79,6 +79,14 @@ export async function loadStudySourceContext({
       data: feedbackData,
       error: feedbackError,
     },
+    {
+      data: assessmentSourceData,
+      error: assessmentSourceError,
+    },
+    {
+      data: assessmentQuestionData,
+      error: assessmentQuestionError,
+    },
   ] = await Promise.all([
     supabase
       .from("course_topics")
@@ -115,12 +123,69 @@ export async function loadStudySourceContext({
         ascending: false,
       })
       .limit(16),
+    supabase
+      .from("assessment_sources")
+      .select("id, title, source_type, analysis, question_count, created_at")
+      .eq("course_id", courseId)
+      .eq("status", "ready")
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabase
+      .from("assessment_source_questions")
+      .select("source_id, prompt, choices, correct_answer, question_type, topic_hints, professor_notes")
+      .eq("course_id", courseId)
+      .order("created_at", { ascending: false })
+      .limit(80),
   ]);
 
   if (topicsError) throw topicsError;
   if (notesError) throw notesError;
   if (linksError) throw linksError;
   if (feedbackError) throw feedbackError;
+  if (assessmentSourceError) throw assessmentSourceError;
+  if (assessmentQuestionError) throw assessmentQuestionError;
+
+  const assessmentLearning =
+    deriveAssessmentLearning(feedbackData ?? []);
+
+  const calibrationText =
+    buildAssessmentLearningContext(
+      assessmentLearning,
+    ).slice(0, 2200);
+
+  const questionsBySource = new Map<string, typeof assessmentQuestionData>();
+  for (const question of assessmentQuestionData ?? []) {
+    const current = questionsBySource.get(question.source_id) ?? [];
+    current.push(question);
+    questionsBySource.set(question.source_id, current);
+  }
+
+  const assessmentEvidenceText = (assessmentSourceData ?? [])
+    .map((source) => {
+      const analysis = source.analysis && typeof source.analysis === "object"
+        ? source.analysis as Record<string, unknown>
+        : {};
+      const evidenceQuestions = questionsBySource.get(source.id) ?? [];
+      return [
+        `REAL ASSESSMENT EVIDENCE: ${source.title} (${source.source_type})`,
+        `PROFESSOR PATTERN: ${safeText(JSON.stringify(analysis), 1800)}`,
+        evidenceQuestions.length
+          ? `REAL QUESTION EXAMPLES:\n${evidenceQuestions.slice(0, 12).map((question) => {
+              const choices = Array.isArray(question.choices) && question.choices.length
+                ? ` [Choices: ${question.choices.join(" | ")}]`
+                : "";
+              const answer = question.correct_answer ? ` [Known answer: ${question.correct_answer}]` : "";
+              return `- ${question.prompt}${choices}${answer}`;
+            }).join("\n")}`
+          : "",
+      ].filter(Boolean).join("\n");
+    })
+    .join("\n\n---\n\n")
+    .slice(0, 7000);
+
+  const learningContext = [assessmentEvidenceText, calibrationText]
+    .filter(Boolean)
+    .join("\n\n---\n\n");
 
   const topics: StudyTopicSource[] = (
     topicsData ?? []
@@ -149,7 +214,7 @@ export async function loadStudySourceContext({
     return {
       topics,
       sourceRefs: [],
-      contextText: "",
+      contextText: learningContext.slice(0, maxCharacters),
     };
   }
 
@@ -368,25 +433,15 @@ export async function loadStudySourceContext({
     }
   }
 
-  const assessmentLearning =
-    deriveAssessmentLearning(
-      feedbackData ?? [],
-    );
-
-  const calibrationText =
-    buildAssessmentLearningContext(
-      assessmentLearning,
-    ).slice(0, 2200);
-
   const separator =
-    calibrationText
+    learningContext
       ? "\n\n---\n\n"
       : "";
 
   const materialBudget = Math.max(
     1000,
     maxCharacters -
-      calibrationText.length -
+      learningContext.length -
       separator.length,
   );
 
@@ -406,11 +461,11 @@ export async function loadStudySourceContext({
     .slice(0, materialBudget);
 
   const contextText = materialContext
-    ? `${materialContext}${separator}${calibrationText}`.slice(
+    ? `${materialContext}${separator}${learningContext}`.slice(
         0,
         maxCharacters,
       )
-    : "";
+    : learningContext.slice(0, maxCharacters);
 
   return {
     topics,

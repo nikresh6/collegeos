@@ -965,6 +965,15 @@ function AssessmentReflection({
               <p className="mt-2 text-[11px] leading-5 text-white/38">
                 Future practice and study planning can now use what this grade taught CollegeOS about you.
               </p>
+              {(target.kind === "exam" || target.kind === "quiz") && (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = "/assessment-lab"; }}
+                  className="mt-4 rounded-full border border-emerald-200/15 bg-emerald-100/[0.035] px-4 py-2 text-[10px] font-medium text-emerald-100/65 transition hover:bg-emerald-100/[0.07]"
+                >
+                  Upload this assessment to sharpen future quizzes
+                </button>
+              )}
             </div>
           ) : attendanceGate ? (
             <div className="mt-7">
