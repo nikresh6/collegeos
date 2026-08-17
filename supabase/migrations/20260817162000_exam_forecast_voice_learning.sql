@@ -230,10 +230,20 @@ declare
   v_user_id uuid;
   v_course_id uuid;
 begin
-  v_user_id := coalesce(new.user_id, old.user_id);
-  v_course_id := coalesce(new.course_id, old.course_id);
+  if tg_op = 'DELETE' then
+    v_user_id := old.user_id;
+    v_course_id := old.course_id;
+  else
+    v_user_id := new.user_id;
+    v_course_id := new.course_id;
+  end if;
+
   perform public.refresh_study_guide_reliability(v_user_id, v_course_id);
-  return coalesce(new, old);
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 end;
 $$;
 
