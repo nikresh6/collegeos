@@ -11,6 +11,46 @@ security definer
 set search_path = ''
 as $$
 begin
+  with guide_priors as (
+    select
+      guide.id as guide_id,
+      greatest(
+        0.600,
+        least(
+          1.350,
+          1.000 +
+            (
+              coalesce(
+                sum(history.predictive_reliability * history.reliability_sample_count)
+                  / nullif(sum(history.reliability_sample_count), 0),
+                1.000
+              ) - 1.000
+            )
+            * (
+              coalesce(sum(history.reliability_sample_count), 0)::numeric
+              / (coalesce(sum(history.reliability_sample_count), 0) + 3.000)
+            )
+        )
+      ) as inherited_reliability
+    from public.assessment_sources as guide
+    left join public.assessment_sources as history
+      on history.user_id = guide.user_id
+     and history.course_id = guide.course_id
+     and history.status = 'ready'
+     and history.source_type = 'study_guide'
+     and history.source_authority = 'instructor'
+     and history.reliability_sample_count > 0
+     and history.id <> guide.id
+     and coalesce(history.assessment_date::timestamptz, history.created_at)
+       <= coalesce(guide.assessment_date::timestamptz, guide.created_at)
+    where guide.user_id = p_user_id
+      and guide.course_id = p_course_id
+      and guide.status = 'ready'
+      and guide.source_type = 'study_guide'
+      and guide.source_authority = 'instructor'
+      and guide.reliability_sample_count = 0
+    group by guide.id
+  )
   update public.assessment_sources as guide
   set
     predictive_reliability = round(prior.inherited_reliability, 3),
@@ -18,42 +58,10 @@ begin
       greatest(0.600, least(1.500, 1.200 * prior.inherited_reliability)),
       3
     )
-  from lateral (
-    select greatest(
-      0.600,
-      least(
-        1.350,
-        1.000 +
-          (
-            coalesce(
-              sum(history.predictive_reliability * history.reliability_sample_count)
-                / nullif(sum(history.reliability_sample_count), 0),
-              1.000
-            ) - 1.000
-          )
-          * (
-            coalesce(sum(history.reliability_sample_count), 0)::numeric
-            / (coalesce(sum(history.reliability_sample_count), 0) + 3.000)
-          )
-      )
-    ) as inherited_reliability
-    from public.assessment_sources as history
-    where history.user_id = guide.user_id
-      and history.course_id = guide.course_id
-      and history.status = 'ready'
-      and history.source_type = 'study_guide'
-      and history.source_authority = 'instructor'
-      and history.reliability_sample_count > 0
-      and history.id <> guide.id
-      and coalesce(history.assessment_date::timestamptz, history.created_at)
-        <= coalesce(guide.assessment_date::timestamptz, guide.created_at)
-  ) as prior
-  where guide.user_id = p_user_id
-    and guide.course_id = p_course_id
-    and guide.status = 'ready'
-    and guide.source_type = 'study_guide'
-    and guide.source_authority = 'instructor'
-    and guide.reliability_sample_count = 0;
+  from guide_priors as prior
+  where guide.id = prior.guide_id
+    and guide.user_id = p_user_id
+    and guide.course_id = p_course_id;
 end;
 $$;
 
