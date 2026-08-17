@@ -88,6 +88,7 @@ type CommandAnswer = {
 };
 
 const EMPTY_SHORTCUTS = [
+  "solve a problem step by step",
   "find my latest lecture",
   "when is my next exam?",
   "what should I study tonight?",
@@ -603,6 +604,24 @@ export function CommandCenter() {
     }
 
     event.preventDefault();
+
+    if (/^(solve|walk me through|help me (solve|with))\b/i.test(query.trim())) {
+      const solverPrompt = query
+        .trim()
+        .replace(/^(solve|walk me through|help me solve|help me with)\s*:?[\s]*/i, "");
+      setOpen(false);
+      window.setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("collegeos:open-solver", {
+            detail: {
+              prompt: solverPrompt,
+              originKind: "manual",
+            },
+          }),
+        );
+      }, 80);
+      return;
+    }
 
     const commandLike =
       /^(create|new|study|open|schedule|plan)\b/i.test(

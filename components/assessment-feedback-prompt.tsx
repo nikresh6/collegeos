@@ -49,6 +49,10 @@ type FeedbackTarget = GradeCandidate & {
   courseColor: string;
   categoryName: string;
   kind: AssessmentKind;
+  topics: Array<{
+    id: string;
+    name: string;
+  }>;
 };
 
 const RECOVERY_WINDOW_MS = 20 * 60 * 1000;
@@ -319,6 +323,7 @@ export function AssessmentFeedbackPrompt() {
               courseError,
           },
           categoryResult,
+          topicResult,
         ] =
           await Promise.all([
             supabase
@@ -346,6 +351,13 @@ export function AssessmentFeedbackPrompt() {
                   data: null,
                   error: null,
                 }),
+            supabase
+              .from("course_topics")
+              .select("id, name")
+              .eq("course_id", grade.course_id)
+              .eq("user_id", grade.user_id)
+              .order("position")
+              .limit(40),
           ]);
 
         if (courseError) {
@@ -362,6 +374,13 @@ export function AssessmentFeedbackPrompt() {
           console.error(
             "Could not load grade reflection category:",
             categoryResult.error,
+          );
+        }
+
+        if (topicResult.error) {
+          console.error(
+            "Could not load grade reflection topics:",
+            topicResult.error,
           );
         }
 
@@ -390,6 +409,11 @@ export function AssessmentFeedbackPrompt() {
                 grade.name,
                 categoryName,
               ),
+            topics:
+              (topicResult.data ?? []).map((topic) => ({
+                id: topic.id,
+                name: topic.name,
+              })),
           },
         ]);
       },
@@ -657,6 +681,14 @@ function AssessmentReflection({
     setNotes,
   ] = useState("");
   const [
+    coveredTopicIds,
+    setCoveredTopicIds,
+  ] = useState<string[]>([]);
+  const [
+    weakTopicIds,
+    setWeakTopicIds,
+  ] = useState<string[]>([]);
+  const [
     saving,
     setSaving,
   ] = useState(false);
@@ -811,6 +843,17 @@ function AssessmentReflection({
                       900,
                     )
                 : null,
+            covered_topic_ids:
+              status === "completed"
+                ? coveredTopicIds
+                : [],
+            weak_topic_ids:
+              status === "completed"
+                ? weakTopicIds.filter((id) =>
+                    coveredTopicIds.length === 0 ||
+                    coveredTopicIds.includes(id),
+                  )
+                : [],
             response_status:
               status,
             updated_at:
@@ -1025,6 +1068,34 @@ function AssessmentReflection({
               </div>
 
               <div className="mt-6 space-y-6">
+                {target.topics.length > 0 && (
+                  <div className="rounded-[18px] border border-white/[0.055] bg-white/[0.01] p-4">
+                    <p className="text-[11px] font-medium text-white/52">What did this assessment actually cover?</p>
+                    <p className="mt-1 text-[9px] leading-4 text-white/24">This keeps the next study plan focused on the right unit instead of treating the whole course equally.</p>
+                    <TopicChips
+                      topics={target.topics}
+                      selectedIds={coveredTopicIds}
+                      onChange={(next) => {
+                        setCoveredTopicIds(next);
+                        setWeakTopicIds((current) => current.filter((id) => next.includes(id)));
+                      }}
+                      color={target.courseColor}
+                    />
+                    {coveredTopicIds.length > 0 && (
+                      <div className="mt-4 border-t border-white/[0.05] pt-4">
+                        <p className="text-[10px] font-medium text-white/44">Which covered topics need the most work?</p>
+                        <TopicChips
+                          topics={target.topics.filter((topic) => coveredTopicIds.includes(topic.id))}
+                          selectedIds={weakTopicIds}
+                          onChange={setWeakTopicIds}
+                          color={target.courseColor}
+                          compact
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <SliderQuestion
                   icon={Gauge}
                   label="How prepared did you feel?"
@@ -1254,6 +1325,50 @@ function AssessmentReflection({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function TopicChips({
+  topics,
+  selectedIds,
+  onChange,
+  color,
+  compact = false,
+}: {
+  topics: Array<{ id: string; name: string }>;
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  color: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`mt-3 flex flex-wrap gap-1.5 ${compact ? "max-h-24" : "max-h-32"} overflow-y-auto pr-1`}>
+      {topics.map((topic) => {
+        const active = selectedIds.includes(topic.id);
+        return (
+          <button
+            key={topic.id}
+            type="button"
+            onClick={() =>
+              onChange(
+                active
+                  ? selectedIds.filter((id) => id !== topic.id)
+                  : [...selectedIds, topic.id],
+              )
+            }
+            className={`rounded-full border px-2.5 py-1.5 text-[9px] transition ${
+              active
+                ? "border-white/[0.14] bg-white/[0.07] text-white/68"
+                : "border-white/[0.055] text-white/28 hover:text-white/50"
+            }`}
+            style={active ? { borderColor: `${color}40`, color } : undefined}
+          >
+            {active && <Check size={9} className="mr-1 inline" />}
+            {topic.name}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

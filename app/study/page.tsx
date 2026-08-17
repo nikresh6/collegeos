@@ -19,12 +19,10 @@ import {
   Gauge,
   Loader2,
   Play,
-  RotateCcw,
   Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
-  Trophy,
 } from "lucide-react";
 import {
   AnimatePresence,
@@ -44,6 +42,7 @@ import {
   weaknessReason,
   type PreparednessResult,
 } from "../../lib/study-mastery";
+import { assessmentSourceWeights } from "../../lib/assessment-evidence";
 
 type Course = {
   id: string;
@@ -138,6 +137,8 @@ export default function StudyPage() {
   const [responses, setResponses] = useState<StudyResponseRow[]>([]);
   const [sourceCounts, setSourceCounts] =
     useState<Record<string, number>>({});
+  const [assessmentSignals, setAssessmentSignals] =
+    useState<Record<string, { priority: number; questionCount: number; verifiedQuestionCount: number }>>({});
   const [sessions, setSessions] = useState<StudySessionRow[]>([]);
   const [guides, setGuides] = useState<StudyGuideRow[]>([]);
 
@@ -248,8 +249,13 @@ export default function StudyPage() {
         { data: topicData, error: topicError },
         { data: responseData, error: responseError },
         { data: linkData, error: linkError },
+        { data: readyAnalysisData, error: readyAnalysisError },
         { data: sessionData, error: sessionError },
         { data: guideData, error: guideError },
+        { data: assessmentSourceData, error: assessmentSourceError },
+        { data: assessmentLinkData, error: assessmentLinkError },
+        { data: assessmentQuestionData, error: assessmentQuestionError },
+        { data: assessmentQuestionLinkData, error: assessmentQuestionLinkError },
       ] = await Promise.all([
         supabase
           .from("course_units")
@@ -275,6 +281,12 @@ export default function StudyPage() {
           .select("topic_id, course_file_id")
           .eq("course_id", nextCourseId),
         supabase
+          .from("material_analyses")
+          .select("course_file_id")
+          .eq("course_id", nextCourseId)
+          .eq("status", "ready")
+          .limit(1000),
+        supabase
           .from("study_sessions")
           .select(
             "id, course_id, strategy, selected_topic_ids, status, answered_count, score_percent, created_at",
@@ -290,14 +302,42 @@ export default function StudyPage() {
           .eq("course_id", nextCourseId)
           .order("created_at", { ascending: false })
           .limit(6),
+        supabase
+          .from("assessment_sources")
+          .select("id, title, source_type, source_authority, coverage_weight, style_weight, assessment_date, created_at")
+          .eq("course_id", nextCourseId)
+          .eq("status", "ready")
+          .limit(500),
+        supabase
+          .from("assessment_source_topic_links")
+          .select("source_id, topic_id, relevance_score, question_count")
+          .eq("course_id", nextCourseId)
+          .limit(500),
+        supabase
+          .from("assessment_source_questions")
+          .select(
+            "id, source_id, correct_answer, answer_is_verified, answer_verification_method",
+          )
+          .eq("course_id", nextCourseId)
+          .limit(1000),
+        supabase
+          .from("assessment_question_topic_links")
+          .select("question_id, topic_id")
+          .eq("course_id", nextCourseId)
+          .limit(1000),
       ]);
 
       if (unitError) throw unitError;
       if (topicError) throw topicError;
       if (responseError) throw responseError;
       if (linkError) throw linkError;
+      if (readyAnalysisError) throw readyAnalysisError;
       if (sessionError) throw sessionError;
       if (guideError) throw guideError;
+      if (assessmentSourceError) throw assessmentSourceError;
+      if (assessmentLinkError) throw assessmentLinkError;
+      if (assessmentQuestionError) throw assessmentQuestionError;
+      if (assessmentQuestionLinkError) throw assessmentQuestionLinkError;
 
       const nextUnits = (unitData ?? []).map((unit) => ({
         id: unit.id,
@@ -328,8 +368,13 @@ export default function StudyPage() {
       );
 
       const counts: Record<string, Set<string>> = {};
+      const readyFileIds = new Set(
+        (readyAnalysisData ?? []).map((analysis) => analysis.course_file_id),
+      );
 
       for (const link of linkData ?? []) {
+        if (!readyFileIds.has(link.course_file_id)) continue;
+
         if (!counts[link.topic_id]) {
           counts[link.topic_id] = new Set();
         }
@@ -345,6 +390,49 @@ export default function StudyPage() {
           ]),
         ),
       );
+
+      const assessmentSources = new Map(
+        (assessmentSourceData ?? []).map((source) => [
+          source.id,
+          assessmentSourceWeights(source).coverage,
+        ]),
+      );
+      const nextAssessmentSignals: Record<string, { priority: number; questionCount: number; verifiedQuestionCount: number }> = {};
+      for (const link of assessmentLinkData ?? []) {
+        const coverage = assessmentSources.get(link.source_id);
+        if (coverage === undefined) continue;
+        const current = nextAssessmentSignals[link.topic_id] ?? { priority: 0, questionCount: 0, verifiedQuestionCount: 0 };
+        current.priority = Math.min(
+          55,
+          current.priority + Number(link.relevance_score ?? 0) * coverage * 24,
+        );
+        current.questionCount += Number(link.question_count ?? 0);
+        nextAssessmentSignals[link.topic_id] = current;
+      }
+
+      const verifiedQuestionIds = new Set(
+        (assessmentQuestionData ?? [])
+          .filter((question) =>
+            assessmentSources.has(question.source_id) &&
+            question.answer_is_verified === true &&
+            (question.answer_verification_method === "source_text_match" ||
+              question.answer_verification_method === "user_confirmed") &&
+            typeof question.correct_answer === "string" &&
+            question.correct_answer.trim().length > 0,
+          )
+          .map((question) => question.id),
+      );
+      for (const link of assessmentQuestionLinkData ?? []) {
+        if (!verifiedQuestionIds.has(link.question_id)) continue;
+        const current = nextAssessmentSignals[link.topic_id] ?? {
+          priority: 0,
+          questionCount: 0,
+          verifiedQuestionCount: 0,
+        };
+        current.verifiedQuestionCount += 1;
+        nextAssessmentSignals[link.topic_id] = current;
+      }
+      setAssessmentSignals(nextAssessmentSignals);
 
       setSessions(
         (sessionData ?? []).map((session) => ({
@@ -404,13 +492,28 @@ export default function StudyPage() {
         setSelectedTopicIds(requestedTopics);
         setStrategy("manual");
       } else if (requestedUnit) {
+        const parentTopicIds = new Set(
+          nextTopics
+            .map((topic) => topic.parent_topic_id)
+            .filter((id): id is string => Boolean(id)),
+        );
         const unitTopicIds = nextTopics
-          .filter((topic) => topic.unit_id === requestedUnit)
+          .filter(
+            (topic) =>
+              topic.unit_id === requestedUnit &&
+              !parentTopicIds.has(topic.id),
+          )
           .map((topic) => topic.id);
 
-        if (unitTopicIds.length > 0) {
+        if (unitTopicIds.length > 0 && unitTopicIds.length <= 20) {
           setSelectedTopicIds(unitTopicIds);
+          setQuestionCount((count) =>
+            Math.min(20, Math.max(count, unitTopicIds.length)),
+          );
           setStrategy("manual");
+        } else if (unitTopicIds.length > 20) {
+          setSelectedTopicIds([]);
+          setError("This unit has more than 20 leaf topics. Choose a smaller topic set.");
         }
       } else {
         setSelectedTopicIds([]);
@@ -506,24 +609,28 @@ export default function StudyPage() {
     return studyNodes
       .filter(
         (topic) =>
-          (sourceCounts[topic.id] ?? 0) > 0,
+          (sourceCounts[topic.id] ?? 0) > 0 ||
+          (assessmentSignals[topic.id]?.verifiedQuestionCount ?? 0) > 0,
       )
       .map((topic) => ({
         topic,
         stats:
           topicPreparedness.get(topic.id) ??
           calculatePreparedness([]),
+        assessmentPriority:
+          assessmentSignals[topic.id]?.priority ?? 0,
       }))
       .sort(
         (a, b) =>
-          studyNeedScore(b.stats) -
-          studyNeedScore(a.stats),
+          (studyNeedScore(b.stats) + b.assessmentPriority) -
+          (studyNeedScore(a.stats) + a.assessmentPriority),
       )
       .slice(0, 5);
   }, [
     studyNodes,
     topicPreparedness,
     sourceCounts,
+    assessmentSignals,
   ]);
 
   const selectedTopics = useMemo(
@@ -558,6 +665,7 @@ export default function StudyPage() {
     topicRows: CourseTopic[],
     responseRows: StudyResponseRow[],
     counts: Record<string, number>,
+    signals: Record<string, { priority: number; questionCount: number; verifiedQuestionCount: number }>,
     allowedUnitIds: string[],
   ) {
     const parentSet = new Set(
@@ -576,7 +684,8 @@ export default function StudyPage() {
         !parentSet.has(topic.id) &&
         Boolean(topic.unit_id) &&
         allowedUnits.has(topic.unit_id as string) &&
-        (counts[topic.id] ?? 0) > 0,
+        ((counts[topic.id] ?? 0) > 0 ||
+          (signals[topic.id]?.verifiedQuestionCount ?? 0) > 0),
     );
 
     const ranked = candidates
@@ -595,7 +704,9 @@ export default function StudyPage() {
 
         return {
           id: topic.id,
-          need: studyNeedScore(stats),
+          need:
+            studyNeedScore(stats) +
+            (signals[topic.id]?.priority ?? 0),
         };
       })
       .sort((a, b) => b.need - a.need);
@@ -644,42 +755,63 @@ export default function StudyPage() {
       topics,
       responses,
       sourceCounts,
+      assessmentSignals,
       adaptiveUnitIds,
     );
   }
 
   function toggleTopic(topicId: string) {
     setStrategy("manual");
+    const next = selectedTopicIds.includes(topicId)
+      ? selectedTopicIds.filter((id) => id !== topicId)
+      : [...selectedTopicIds, topicId];
 
-    setSelectedTopicIds((current) =>
-      current.includes(topicId)
-        ? current.filter((id) => id !== topicId)
-        : [...current, topicId],
-    );
+    if (next.length > 20) {
+      setError("Choose at most 20 leaf topics for one study session.");
+      return;
+    }
+
+    setError("");
+    setQuestionCount((count) => Math.min(20, Math.max(count, next.length)));
+    setSelectedTopicIds(next);
   }
 
   function toggleUnit(unitId: string) {
     setStrategy("manual");
 
+    const parentTopicIds = new Set(
+      topics
+        .map((topic) => topic.parent_topic_id)
+        .filter((id): id is string => Boolean(id)),
+    );
     const ids = topics
-      .filter((topic) => topic.unit_id === unitId)
+      .filter(
+        (topic) =>
+          topic.unit_id === unitId &&
+          !parentTopicIds.has(topic.id),
+      )
       .map((topic) => topic.id);
 
     const allSelected = ids.every((id) =>
       selectedTopicIds.includes(id),
     );
 
-    setSelectedTopicIds((current) => {
-      const next = new Set(current);
+    const next = new Set(selectedTopicIds);
 
-      if (allSelected) {
-        ids.forEach((id) => next.delete(id));
-      } else {
-        ids.forEach((id) => next.add(id));
-      }
+    if (allSelected) {
+      ids.forEach((id) => next.delete(id));
+    } else {
+      ids.forEach((id) => next.add(id));
+    }
 
-      return Array.from(next);
-    });
+    if (next.size > 20) {
+      setError("Choose at most 20 leaf topics for one study session.");
+      return;
+    }
+
+    setError("");
+    setQuestionCount((count) => Math.min(20, Math.max(count, next.size)));
+    setSelectedTopicIds(Array.from(next));
   }
 
   function setQuestionType(
