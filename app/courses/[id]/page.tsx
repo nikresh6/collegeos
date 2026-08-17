@@ -874,6 +874,7 @@ export default function CoursePage() {
       formData.append("file", file);
       formData.append("materialType", material.material_type);
       formData.append("detailLevel", detailLevel);
+      formData.append("courseId", courseId);
       formData.append(
         "topics",
         JSON.stringify(
@@ -884,8 +885,16 @@ export default function CoursePage() {
         ),
       );
 
+      const { data: { session: authSession }, error: authSessionError } =
+        await supabase.auth.getSession();
+      if (authSessionError) throw authSessionError;
+      if (!authSession) throw new Error("You must be signed in.");
+
       const response = await fetch("/api/analyze-material", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+        },
         body: formData,
       });
 

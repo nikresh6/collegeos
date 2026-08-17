@@ -11,7 +11,6 @@ import {
 } from "next/navigation";
 import {
   ArrowLeft,
-  BookOpen,
   CheckCircle2,
   ChevronRight,
   Download,
@@ -44,6 +43,7 @@ type GuideContent = {
     connections: string[];
     commonConfusions: string[];
     sourceFileIds: string[];
+    assessmentSourceIds?: string[];
   }>;
   quickRecall: Array<{
     topicId: string;
@@ -51,6 +51,22 @@ type GuideContent = {
     answer: string;
   }>;
   studyPlan: string[];
+};
+
+type CourseFileSourceRef = {
+  kind?: "course_file";
+  fileId: string;
+  fileName: string;
+  materialType: string;
+  topicIds: string[];
+};
+
+type AssessmentSourceRef = {
+  kind: "assessment_source";
+  assessmentSourceId: string;
+  title: string;
+  sourceType: string;
+  topicIds: string[];
 };
 
 type GuideRecord = {
@@ -63,12 +79,7 @@ type GuideRecord = {
   depth_percent: number;
   title: string;
   content: GuideContent;
-  source_refs: Array<{
-    fileId: string;
-    fileName: string;
-    materialType: string;
-    topicIds: string[];
-  }>;
+  source_refs: Array<CourseFileSourceRef | AssessmentSourceRef>;
   created_at: string;
 };
 
@@ -448,12 +459,27 @@ export default function StudyGuidePage() {
             guide
               ?.source_refs ??
             []
-          ).map(
-            (source) => [
-              source.fileId,
-              source,
-            ],
-          ),
+          )
+            .filter(
+              (source): source is CourseFileSourceRef =>
+                "fileId" in source && Boolean(source.fileId),
+            )
+            .map((source) => [source.fileId, source]),
+        ),
+      [guide],
+    );
+
+  const assessmentSourceMap =
+    useMemo(
+      () =>
+        new Map(
+          (guide?.source_refs ?? [])
+            .filter(
+              (source): source is AssessmentSourceRef =>
+                "assessmentSourceId" in source &&
+                Boolean(source.assessmentSourceId),
+            )
+            .map((source) => [source.assessmentSourceId, source]),
         ),
       [guide],
     );
@@ -775,7 +801,8 @@ export default function StudyGuidePage() {
                       />
                     </div>
 
-                    {section.sourceFileIds?.length > 0 && (
+                    {(section.sourceFileIds?.length > 0 ||
+                      (section.assessmentSourceIds?.length ?? 0) > 0) && (
                       <div className="study-print-hide flex flex-wrap items-center gap-2 border-t border-white/[0.045] px-5 py-4 sm:px-6">
                         <span className="text-[7px] font-semibold uppercase tracking-[0.12em] text-white/16">
                           Sources
@@ -822,6 +849,25 @@ export default function StudyGuidePage() {
                               );
                             },
                           )}
+
+                        {section.assessmentSourceIds
+                          ?.map((sourceId) =>
+                            assessmentSourceMap.get(sourceId),
+                          )
+                          .filter(Boolean)
+                          .slice(0, 5)
+                          .map((source) => (
+                            <span
+                              key={source!.assessmentSourceId}
+                              title={`${source!.title} · ${source!.sourceType.replace(/_/g, " ")}`}
+                              className="rounded-full border border-white/[0.05] bg-white/[0.007] px-2.5 py-1 text-[7px] text-white/24"
+                            >
+                              {source!.title}
+                              <span className="ml-1 capitalize text-white/14">
+                                · {source!.sourceType.replace(/_/g, " ")}
+                              </span>
+                            </span>
+                          ))}
                       </div>
                     )}
                   </article>

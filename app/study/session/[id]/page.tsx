@@ -9,10 +9,10 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  BrainCircuit,
   Check,
   CheckCircle2,
   ChevronRight,
-  Circle,
   ExternalLink,
   FileText,
   Flame,
@@ -58,13 +58,16 @@ type Question = {
   question_type: QuestionType;
   prompt: string;
   choices: string[];
-  correct_answer: string;
   explanation: string;
   difficulty: number;
   source_refs: Array<{
+    kind?: "course_file" | "assessment_source";
     fileId?: string;
     fileName?: string;
     materialType?: string;
+    assessmentSourceId?: string;
+    title?: string;
+    sourceType?: string;
   }>;
   position: number;
 };
@@ -105,7 +108,6 @@ type GradeResult = {
   score: number;
   isCorrect: boolean;
   feedback: string;
-  correctAnswer: string;
   explanation: string;
   preparedness?: {
     preparedness: number;
@@ -225,7 +227,7 @@ export default function StudySessionPage() {
         supabase
           .from("study_questions")
           .select(
-            "id, topic_id, question_type, prompt, choices, correct_answer, explanation, difficulty, source_refs, position",
+            "id, topic_id, question_type, prompt, choices, difficulty, source_refs, position",
           )
           .eq("session_id", sessionId)
           .order("position", { ascending: true }),
@@ -275,8 +277,7 @@ export default function StudySessionPage() {
           choices: Array.isArray(question.choices)
             ? question.choices
             : [],
-          correct_answer: question.correct_answer,
-          explanation: question.explanation ?? "",
+          explanation: "",
           difficulty: Number(question.difficulty ?? 2),
           source_refs: Array.isArray(question.source_refs)
             ? question.source_refs
@@ -813,6 +814,22 @@ export default function StudySessionPage() {
     setAnswer(value);
   }
 
+  function openGuidedSolve() {
+    if (!currentQuestion || !course) return;
+
+    window.dispatchEvent(
+      new CustomEvent("collegeos:open-solver", {
+        detail: {
+          prompt: currentQuestion.prompt,
+          courseId: course.id,
+          topicId: currentQuestion.topic_id ?? undefined,
+          originKind: "study_question",
+          originId: currentQuestion.id,
+        },
+      }),
+    );
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#080809] text-white">
@@ -1123,8 +1140,8 @@ export default function StudySessionPage() {
                         answer === choice;
                       const correct =
                         result &&
-                        choice ===
-                          result.correctAnswer;
+                        result.score >= 0.85 &&
+                        chosen;
                       const wrongChosen =
                         result &&
                         chosen &&
@@ -1223,8 +1240,9 @@ export default function StudySessionPage() {
                           : "Not quite."}
                     </p>
                     <p className="mt-2 text-[12px] leading-6 text-white/42">
-                      {result.feedback ||
-                        result.explanation}
+                      {result.score >= 0.85
+                        ? result.feedback || result.explanation
+                        : "Keep the answer hidden and work through the reasoning. Guided Solve will give you progressively stronger hints without spoiling the result."}
                     </p>
                   </div>
 
@@ -1234,14 +1252,31 @@ export default function StudySessionPage() {
                 </div>
 
                 {result.score < 0.85 && (
-                  <div className="mt-4 border-t border-white/[0.05] pt-4">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/26">
-                      Answer
-                    </p>
-                    <p className="mt-2 text-[12px] leading-5 text-white/52">
-                      {result.correctAnswer}
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={openGuidedSolve}
+                    className="mt-4 flex w-full items-center gap-3 rounded-[16px] border border-white/[0.07] bg-white/[0.018] px-4 py-3.5 text-left transition hover:border-white/[0.12] hover:bg-white/[0.035]"
+                  >
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px]"
+                      style={{
+                        color: accent,
+                        backgroundColor: `${accent}12`,
+                      }}
+                    >
+                      <BrainCircuit size={13} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-medium text-white/58">
+                        Walk me through it
+                      </span>
+                      <span className="mt-1 block text-[8px] leading-4 text-white/24">
+                        Solve one verified step at a time. The answer stays
+                        locked until you finish or choose to reveal it.
+                      </span>
+                    </span>
+                    <ChevronRight size={10} className="text-white/16" />
+                  </button>
                 )}
 
                 {result.preparedness && (
@@ -1293,8 +1328,9 @@ export default function StudySessionPage() {
                             : "Review these materials before your next rep."}
                         </p>
                         <p className="mt-1 text-[9px] leading-4 text-white/26">
-                          These are the sources this question was built from.
-                          Open one to review it, or star it for quick access later.
+                          These are the course materials and assessment evidence
+                          this question was built from. Open a course file to
+                          review it, or star it for quick access later.
                         </p>
                       </div>
                     </div>
@@ -1395,6 +1431,36 @@ export default function StudySessionPage() {
                                 />
                               )}
                             </button>
+                          </div>
+                        ))}
+
+                      {currentQuestion.source_refs
+                        .filter(
+                          (source) =>
+                            Boolean(source.assessmentSourceId) &&
+                            Boolean(source.title),
+                        )
+                        .slice(0, 5)
+                        .map((source) => (
+                          <div
+                            key={`assessment:${source.assessmentSourceId}`}
+                            className="flex items-center gap-3 rounded-[14px] border border-white/[0.055] bg-black/10 px-4 py-3"
+                          >
+                            <BrainCircuit
+                              size={11}
+                              className="shrink-0 text-white/24"
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-[10px] font-medium text-white/48">
+                                {source.title}
+                              </p>
+                              <p className="mt-0.5 text-[8px] capitalize text-white/20">
+                                {(source.sourceType ?? "assessment evidence").replace(
+                                  /_/g,
+                                  " ",
+                                )}
+                              </p>
+                            </div>
                           </div>
                         ))}
                     </div>

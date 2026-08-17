@@ -10,6 +10,12 @@ import {
 import {
   rebuildPlannerLearningProfile,
 } from "../../../../lib/planner-learning-server";
+import {
+  deriveAssessmentLearning,
+} from "../../../../lib/assessment-learning";
+import {
+  assessmentSourceWeights,
+} from "../../../../lib/assessment-evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -440,6 +446,18 @@ export async function POST(request: Request) {
         data: courseEventData,
         error: courseEventError,
       },
+      {
+        data: assessmentSourceData,
+        error: assessmentSourceError,
+      },
+      {
+        data: assessmentTopicData,
+        error: assessmentTopicError,
+      },
+      {
+        data: assessmentFeedbackData,
+        error: assessmentFeedbackError,
+      },
     ] = await Promise.all([
       supabase
         .from("calendar_preferences")
@@ -451,17 +469,20 @@ export async function POST(request: Request) {
       supabase
         .from("courses")
         .select("id, code, name, color")
+        .eq("user_id", user.id)
         .is("archived_at", null),
       supabase
         .from("course_topics")
         .select(
           "id, course_id, parent_topic_id, name",
-        ),
+        )
+        .eq("user_id", user.id),
       supabase
         .from("study_responses")
         .select(
           "course_id, topic_id, score, answered_at",
         )
+        .eq("user_id", user.id)
         .order("answered_at", {
           ascending: true,
         }),
@@ -470,14 +491,16 @@ export async function POST(request: Request) {
         .select(
           "id, course_id, days_of_week, start_time, end_time, start_date, end_date, week_pattern",
         )
+        .eq("user_id", user.id)
         .eq("is_active", true)
         .lte("start_date", weekEnd)
         .gte("end_date", weekStart),
       supabase
         .from("calendar_items")
         .select(
-          "id, course_id, item_type, starts_at, ends_at, source, planner_locked",
+          "id, course_id, item_type, starts_at, ends_at, source, planner_locked, topic_ids",
         )
+        .eq("user_id", user.id)
         .gte(
           "starts_at",
           new Date(
@@ -496,6 +519,7 @@ export async function POST(request: Request) {
         .select(
           "course_id, name, event_type, start_date",
         )
+        .eq("user_id", user.id)
         .gte("start_date", weekStart)
         .lte(
           "start_date",
@@ -504,6 +528,25 @@ export async function POST(request: Request) {
             14,
           ),
         ),
+      supabase
+        .from("assessment_sources")
+        .select("id, course_id, title, source_type, source_authority, style_weight, coverage_weight, assessment_date, status, created_at")
+        .eq("user_id", user.id)
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("assessment_source_topic_links")
+        .select("source_id, course_id, topic_id, relevance_score, question_count")
+        .eq("user_id", user.id)
+        .limit(1000),
+      supabase
+        .from("assessment_feedback")
+        .select("course_id, assessment_kind, score_percent, preparedness_percent, difficulty_percent, quiz_similarity_percent, assistant_helpfulness_percent, study_hours, difference_notes, covered_topic_ids, weak_topic_ids, response_status, created_at")
+        .eq("user_id", user.id)
+        .eq("response_status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
 
     if (preferenceError) {
@@ -519,6 +562,9 @@ export async function POST(request: Request) {
     if (courseEventError) {
       throw courseEventError;
     }
+    if (assessmentSourceError) throw assessmentSourceError;
+    if (assessmentTopicError) throw assessmentTopicError;
+    if (assessmentFeedbackError) throw assessmentFeedbackError;
 
     const basePreferences =
       preferenceData as Preferences;
@@ -566,6 +612,43 @@ export async function POST(request: Request) {
           !childIds.has(topic.id),
       );
 
+    const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+    const childrenByParent = new Map<string, Topic[]>();
+    for (const topic of topics) {
+      if (!topic.parent_topic_id) continue;
+      const current = childrenByParent.get(topic.parent_topic_id) ?? [];
+      current.push(topic);
+      childrenByParent.set(topic.parent_topic_id, current);
+    }
+
+    const expandToLeafTopics = (
+      topicIds: string[],
+      courseId: string,
+    ) => {
+      const leaves = new Set<string>();
+      const pending = [...topicIds];
+      const visited = new Set<string>();
+
+      while (pending.length) {
+        const topicId = pending.pop();
+        if (!topicId || visited.has(topicId)) continue;
+        visited.add(topicId);
+
+        const topic = topicById.get(topicId);
+        if (!topic || topic.course_id !== courseId) continue;
+        const children = (childrenByParent.get(topicId) ?? []).filter(
+          (child) => child.course_id === courseId,
+        );
+        if (children.length === 0) {
+          leaves.add(topicId);
+        } else {
+          pending.push(...children.map((child) => child.id));
+        }
+      }
+
+      return Array.from(leaves);
+    };
+
     const preparednessByTopic =
       new Map<
         string,
@@ -599,6 +682,8 @@ export async function POST(request: Request) {
 
     const courseUrgency =
       new Map<string, number>();
+    const topicUrgency =
+      new Map<string, number>();
 
     const weekStartOrdinal =
       dateOrdinal(weekStart);
@@ -624,6 +709,7 @@ export async function POST(request: Request) {
           urgency,
         ),
       );
+
     }
 
     for (const item of itemsData ?? []) {
@@ -666,6 +752,100 @@ export async function POST(request: Request) {
           urgency,
         ),
       );
+
+      const scopedTopicIds = Array.isArray(item.topic_ids)
+        ? item.topic_ids.filter((id): id is string => typeof id === "string")
+        : [];
+      for (const topicId of expandToLeafTopics(
+        scopedTopicIds,
+        item.course_id,
+      )) {
+        topicUrgency.set(topicId, Math.max(topicUrgency.get(topicId) ?? 0, urgency));
+      }
+    }
+
+    const sourceById = new Map(
+      (assessmentSourceData ?? []).map((source) => [source.id, source]),
+    );
+
+    const assessmentPriorityByTopic = new Map<
+      string,
+      {
+        score: number;
+        questionCount: number;
+        sourceTypes: Set<string>;
+      }
+    >();
+
+    for (const link of assessmentTopicData ?? []) {
+      const source = sourceById.get(link.source_id);
+      if (!source || source.course_id !== link.course_id) continue;
+
+      const relevance = clamp(Number(link.relevance_score ?? 0), 0, 1);
+      const coverageWeight = assessmentSourceWeights(source).coverage;
+      const questionCount = Math.max(0, Number(link.question_count ?? 0));
+      const questionSignal = 1 + Math.min(0.35, questionCount * 0.035);
+      const score = relevance * coverageWeight * questionSignal * 24;
+      for (const topicId of expandToLeafTopics(
+        [link.topic_id],
+        link.course_id,
+      )) {
+        const current = assessmentPriorityByTopic.get(topicId) ?? {
+          score: 0,
+          questionCount: 0,
+          sourceTypes: new Set<string>(),
+        };
+
+        current.score = Math.min(52, current.score + score);
+        current.questionCount += questionCount;
+        current.sourceTypes.add(source.source_type);
+        assessmentPriorityByTopic.set(topicId, current);
+      }
+    }
+
+    const surveyPriorityByTopic = new Map<string, number>();
+    const assessmentLearningByCourse = new Map<string, ReturnType<typeof deriveAssessmentLearning>>();
+
+    for (const course of courses) {
+      assessmentLearningByCourse.set(
+        course.id,
+        deriveAssessmentLearning(
+          (assessmentFeedbackData ?? []).filter((row) => row.course_id === course.id),
+        ),
+      );
+    }
+
+    for (const feedback of assessmentFeedbackData ?? []) {
+      const score = clamp(Number(feedback.score_percent ?? 100), 0, 100);
+      const weakness = 10 + Math.max(0, 82 - score) * 0.28;
+      const covered = Array.isArray(feedback.covered_topic_ids)
+        ? feedback.covered_topic_ids.filter((id): id is string => typeof id === "string")
+        : [];
+      const weak = Array.isArray(feedback.weak_topic_ids)
+        ? feedback.weak_topic_ids.filter((id): id is string => typeof id === "string")
+        : [];
+
+      for (const topicId of expandToLeafTopics(
+        covered,
+        feedback.course_id,
+      )) {
+        if (score < 82) {
+          surveyPriorityByTopic.set(
+            topicId,
+            Math.min(30, (surveyPriorityByTopic.get(topicId) ?? 0) + 5),
+          );
+        }
+      }
+
+      for (const topicId of expandToLeafTopics(
+        weak,
+        feedback.course_id,
+      )) {
+        surveyPriorityByTopic.set(
+          topicId,
+          Math.min(42, (surveyPriorityByTopic.get(topicId) ?? 0) + weakness),
+        );
+      }
     }
 
     const rankedCourses = courses
@@ -679,24 +859,28 @@ export async function POST(request: Request) {
 
         const rankedTopics =
           courseTopics
-            .map((topic) => ({
-              topic,
-              stats:
-                preparednessByTopic.get(
-                  topic.id,
-                ) ??
-                calculatePreparedness(
-                  [],
-                ),
-            }))
+            .map((topic) => {
+              const evidence = assessmentPriorityByTopic.get(topic.id);
+              return {
+                topic,
+                stats:
+                  preparednessByTopic.get(
+                    topic.id,
+                  ) ??
+                  calculatePreparedness(
+                    [],
+                  ),
+                assessmentPriority: evidence?.score ?? 0,
+                assessmentQuestionCount: evidence?.questionCount ?? 0,
+                assessmentSourceTypes: evidence ? Array.from(evidence.sourceTypes) : [],
+                surveyPriority: surveyPriorityByTopic.get(topic.id) ?? 0,
+                deadlinePriority: topicUrgency.get(topic.id) ?? 0,
+              };
+            })
             .sort(
               (a, b) =>
-                studyNeedScore(
-                  b.stats,
-                ) -
-                studyNeedScore(
-                  a.stats,
-                ),
+                (studyNeedScore(b.stats) + b.assessmentPriority + b.surveyPriority + b.deadlinePriority) -
+                (studyNeedScore(a.stats) + a.assessmentPriority + a.surveyPriority + a.deadlinePriority),
             );
 
         const top =
@@ -720,14 +904,23 @@ export async function POST(request: Request) {
             course.id,
           ) ?? 0;
 
+        const assessmentLearning = assessmentLearningByCourse.get(course.id) ?? deriveAssessmentLearning([]);
+        const evidencePriority = top.length
+          ? Math.max(...top.map((item) => item.assessmentPriority + item.surveyPriority))
+          : 0;
+
         return {
           course,
           topics: rankedTopics,
           preparedness,
           urgency,
+          assessmentMultiplier: assessmentLearning.studyLoadMultiplier,
+          evidencePriority,
           need:
             (100 - preparedness) +
             urgency +
+            evidencePriority +
+            Math.max(0, assessmentLearning.studyLoadMultiplier - 1) * 45 +
             (top.some(
               (item) =>
                 item.stats
@@ -936,6 +1129,10 @@ export async function POST(request: Request) {
           ? 2
           : 1;
 
+      if (target.evidencePriority >= 28) {
+        sessionCount = Math.max(sessionCount, 2);
+      }
+
       if (
         target.preparedness < 35 &&
         target.urgency >= 25
@@ -943,13 +1140,21 @@ export async function POST(request: Request) {
         sessionCount = 3;
       }
 
-      const minutes =
+      const baseMinutes =
         minutesForPreparedness({
           preparedness:
             target.preparedness,
           urgency: target.urgency,
           preferences,
         });
+
+      const minutes = Math.round(
+        clamp(
+          baseMinutes * target.assessmentMultiplier,
+          preferences.min_study_minutes,
+          preferences.max_study_minutes,
+        ) / 5,
+      ) * 5;
 
       for (
         let sessionIndex = 0;
@@ -1155,6 +1360,12 @@ export async function POST(request: Request) {
                 " + ",
               )}`
             : "",
+          weakest.some((item) => item.assessmentQuestionCount > 0)
+            ? `${weakest.reduce((sum, item) => sum + item.assessmentQuestionCount, 0)} relevant assessment questions`
+            : "",
+          weakest.some((item) => item.surveyPriority > 0)
+            ? "Post-grade reflection marked this scope for review"
+            : "",
         ]
           .filter(Boolean)
           .join(" · ");
@@ -1322,7 +1533,7 @@ export async function POST(request: Request) {
       },
       message:
         proposed.length > 0
-          ? `Planned ${proposed.length} flexible study session${proposed.length === 1 ? "" : "s"} around classes, meals, sleep, deadlines, preparedness, and the study patterns you actually keep.`
+          ? `Planned ${proposed.length} flexible study session${proposed.length === 1 ? "" : "s"} around classes, meals, sleep, deadlines, quiz mastery, assessment coverage, and what your grade reflections said needs work.`
           : "I could not find a conflict-free study window this week. Adjust your availability or calendar and try again.",
     });
   } catch (error) {
