@@ -26,6 +26,7 @@ import {
 } from "../components/assessment-feedback-prompt";
 import { GlobalNavigation } from "../components/global-navigation";
 import { SolveAssistant } from "../components/solve-assistant";
+import { ExamIntelligence } from "../components/exam-intelligence";
 
 export const metadata:
   Metadata = {
@@ -60,6 +61,7 @@ export default function RootLayout({
             <AttentionCenter />
             <CommandCenter />
             <SolveAssistant />
+            <ExamIntelligence />
             <AssessmentFeedbackPrompt />
             <GlobalNavigation />
           </LectureRecordingProvider>
