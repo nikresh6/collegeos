@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateStructured } from "../../../lib/ai/groq";
+import { userContext } from "../../../lib/server-auth";
 import {
-  calculateGradebook,
   effectiveGradeScale,
   normalizeGradeScale,
   type GradeCategoryInput,
@@ -186,6 +186,14 @@ function normalizedTargetLetter(
 }
 
 export async function POST(request: Request) {
+  const auth = await userContext(request);
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, error: "You are not signed in." },
+      { status: 401 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       message?: string;
@@ -209,6 +217,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (message.length > 2_000) {
+      return NextResponse.json(
+        { ok: false, error: "Keep GPA questions under 2,000 characters." },
+        { status: 400 },
+      );
+    }
+
     if (
       !context ||
       !Array.isArray(context.activeCourses) ||
@@ -219,6 +234,19 @@ export async function POST(request: Request) {
           ok: false,
           error: "GPA context is missing.",
         },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !Number.isFinite(Number(context.targetGpa)) ||
+      Number(context.targetGpa) < 0 ||
+      Number(context.targetGpa) > 4 ||
+      context.activeCourses.length > 100 ||
+      context.historicalCourses.length > 500
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "GPA context is invalid or too large." },
         { status: 400 },
       );
     }
@@ -238,7 +266,7 @@ export async function POST(request: Request) {
       .slice(-6)
       .map(
         (entry) =>
-          `${entry.role.toUpperCase()}: ${entry.content}`,
+          `${entry.role.toUpperCase()}: ${String(entry.content).slice(0, 2_000)}`,
       )
       .join("\n");
 
