@@ -49,17 +49,44 @@ export async function extractPdfText(file: File) {
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
 
-      const text = content.items
-        .map((item) => {
-          if ("str" in item && typeof item.str === "string") {
-            return item.str;
-          }
+      const rows: Array<{
+        y: number;
+        items: Array<{ x: number; width: number; text: string }>;
+      }> = [];
 
-          return "";
+      for (const item of content.items) {
+        if (!("str" in item) || typeof item.str !== "string") continue;
+        const itemText = item.str.replace(/\s+/g, " ").trim();
+        if (!itemText) continue;
+
+        const x = Number(item.transform?.[4] ?? 0);
+        const y = Number(item.transform?.[5] ?? 0);
+        const width = Number(item.width ?? 0);
+        let row = rows.find((candidate) => Math.abs(candidate.y - y) <= 2);
+        if (!row) {
+          row = { y, items: [] };
+          rows.push(row);
+        }
+        row.items.push({ x, width, text: itemText });
+      }
+
+      const text = rows
+        .sort((left, right) => right.y - left.y)
+        .map((row) => {
+          const items = row.items.sort((left, right) => left.x - right.x);
+          let cursor = 0;
+          return items
+            .map((item, index) => {
+              const separator =
+                index === 0 ? "" : item.x - cursor > 18 ? " | " : " ";
+              cursor = Math.max(cursor, item.x + item.width);
+              return `${separator}${item.text}`;
+            })
+            .join("")
+            .trim();
         })
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
+        .filter(Boolean)
+        .join("\n");
 
       pageTexts.push(text);
 
