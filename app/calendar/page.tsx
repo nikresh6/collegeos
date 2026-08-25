@@ -294,30 +294,6 @@ function classOccurs(
     : parity === 1;
 }
 
-function combineDateTime(
-  date: Date,
-  clock: string,
-) {
-  const [hours, minutes] =
-    clock.split(":").map(Number);
-
-  const result =
-    new Date(date);
-
-  result.setHours(
-    Number.isFinite(hours)
-      ? hours
-      : 0,
-    Number.isFinite(minutes)
-      ? minutes
-      : 0,
-    0,
-    0,
-  );
-
-  return result;
-}
-
 function courseColor(
   courseMap: Map<string, Course>,
   courseId: string | null,
@@ -1206,14 +1182,12 @@ export default function CalendarPage() {
             )}`,
             groupId: `class:${rule.id}`,
             title: rule.title,
-            start: combineDateTime(
-              cursor,
-              rule.start_time,
-            ),
-            end: combineDateTime(
-              cursor,
-              rule.end_time,
-            ),
+            // Floating local strings are interpreted in the calendar's chosen
+            // timezone. Passing browser Date objects here shifted recurring
+            // classes a day in month view when the saved timezone differed
+            // from the browser/runtime timezone.
+            start: `${localDateString(cursor)}T${rule.start_time}`,
+            end: `${localDateString(cursor)}T${rule.end_time}`,
             editable: false,
             backgroundColor: `${accent}34`,
             borderColor: accent,
@@ -2554,18 +2528,11 @@ export default function CalendarPage() {
                     dayHeaderContent={(
                       info: any,
                     ) => {
-                      const calendar =
-                        info.view.calendar;
-                      const weekday =
-                        calendar.formatDate(
-                          info.date,
-                          { weekday: "short" },
-                        );
-                      const day =
-                        calendar.formatDate(
-                          info.date,
-                          { day: "numeric" },
-                        );
+                      // FullCalendar exposes timezone-aware date markers whose
+                      // intended wall-clock components are the UTC fields when
+                      // using a named timezone without an extra timezone plugin.
+                      const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][info.date.getUTCDay()];
+                      const day = String(info.date.getUTCDate());
 
                       return (
                         <div

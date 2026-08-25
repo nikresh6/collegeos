@@ -1,14 +1,10 @@
-import {
-  GlobalWorkerOptions,
-  getDocument,
-} from "pdfjs-dist/legacy/build/pdf.mjs";
-
-GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
-
 export async function extractPdfText(file: File) {
+  // Keep pdf.js out of the route's module initialization. If the deployment is
+  // missing an optional PDF runtime dependency, the request can now return a
+  // useful JSON error instead of Next.js/Vercel returning an HTML 500 page.
+  const { getDocument } = await import(
+    "pdfjs-dist/legacy/build/pdf.mjs"
+  );
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   const loadingTask = getDocument({

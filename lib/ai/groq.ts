@@ -1,15 +1,29 @@
 import Groq from "groq-sdk";
 
-const apiKey = process.env.GROQ_API_KEY;
+let groqClient: Groq | null = null;
 
-if (!apiKey) {
-  throw new Error(
-    "GROQ_API_KEY is missing. Add it to .env.local and restart Next.js.",
-  );
+export function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "GROQ_API_KEY is missing from the server environment.",
+    );
+  }
+
+  groqClient ??= new Groq({ apiKey });
+  return groqClient;
 }
 
-export const groq = new Groq({
-  apiKey,
+// Backward-compatible lazy facade for routes that use specialized Groq APIs
+// (audio transcription, raw chat completions, etc.). Accessing it inside a
+// request initializes the client; importing the module never crashes a route.
+export const groq = new Proxy({} as Groq, {
+  get(_target, property) {
+    const client = getGroqClient();
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
 });
 
 export const GROQ_MODELS = {
@@ -46,7 +60,7 @@ export async function generateStructured<T>({
   maxTokens?: number;
   model?: string;
 }): Promise<T> {
-  const completion = await groq.chat.completions.create({
+  const completion = await getGroqClient().chat.completions.create({
     model,
 
     messages: [
