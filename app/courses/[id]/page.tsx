@@ -6122,9 +6122,11 @@ function AnalysisSection({
 function AnalysisValue({
   label,
   value,
+  last = false,
 }: {
   label: string;
   value: string;
+  last?: boolean;
 }) {
   const displayValue = value.trim() || "Not found";
 
@@ -6185,7 +6187,6 @@ function SetupRow({
   error,
   onAction,
   onView,
-  last = false,
 }: {
   icon: React.ElementType;
   title: string;
@@ -6197,7 +6198,6 @@ function SetupRow({
   error?: string;
   onAction?: () => void;
   onView?: () => void;
-  last?: boolean;
 }) {
   return (
     <div className="overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">

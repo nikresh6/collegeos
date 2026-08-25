@@ -1,10 +1,4 @@
-import Groq from "groq-sdk";
-
-const groq =
-  new Groq({
-    apiKey:
-      process.env.GROQ_API_KEY,
-  });
+import { getGroqClient } from "./ai/groq";
 
 const NOTE_MODELS = [
   "openai/gpt-oss-20b",
@@ -49,7 +43,7 @@ export async function noteCompletion({
   ) {
     try {
       const completion =
-        await groq.chat.completions.create({
+        await getGroqClient().chat.completions.create({
           model,
           messages: [
             {
