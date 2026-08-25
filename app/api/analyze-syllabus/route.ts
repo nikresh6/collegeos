@@ -5,6 +5,7 @@ import { userContext } from "../../../lib/server-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 240;
 
 type SyllabusAnalysis = {
   courseInfo: {
@@ -289,6 +290,8 @@ function isGroqAuthError(message: string) {
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID();
+
   try {
     const context = await userContext(request);
     if (!context) {
@@ -298,11 +301,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const formData = await request.formData();
-    const candidate = formData.get("file");
-    const courseId = formData.get("courseId");
+    const contentType = request.headers.get("content-type") ?? "";
+    let candidate: File | null = null;
+    let courseId = "";
+    let courseFileId = "";
 
-    if (typeof courseId !== "string" || !courseId) {
+    if (contentType.includes("application/json")) {
+      const body = (await request.json()) as {
+        courseId?: unknown;
+        courseFileId?: unknown;
+      };
+      courseId = typeof body.courseId === "string" ? body.courseId : "";
+      courseFileId =
+        typeof body.courseFileId === "string" ? body.courseFileId : "";
+    } else {
+      const formData = await request.formData();
+      const uploaded = formData.get("file");
+      candidate = uploaded instanceof File ? uploaded : null;
+      const rawCourseId = formData.get("courseId");
+      courseId = typeof rawCourseId === "string" ? rawCourseId : "";
+    }
+
+    if (!courseId) {
       return NextResponse.json(
         { ok: false, error: "A course is required." },
         { status: 400 },
@@ -324,11 +344,45 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!(candidate instanceof File)) {
+    if (courseFileId) {
+      const { data: storedFile, error: storedFileError } =
+        await context.supabase
+          .from("course_files")
+          .select("id, file_name, storage_path, mime_type, size_bytes")
+          .eq("id", courseFileId)
+          .eq("course_id", courseId)
+          .eq("user_id", context.user.id)
+          .eq("material_type", "syllabus")
+          .maybeSingle();
+
+      if (storedFileError) throw storedFileError;
+      if (!storedFile) {
+        return NextResponse.json(
+          { ok: false, requestId, error: "Syllabus file not found." },
+          { status: 404 },
+        );
+      }
+
+      const { data: storedBlob, error: downloadError } =
+        await context.supabase.storage
+          .from("course-files")
+          .download(storedFile.storage_path);
+
+      if (downloadError || !storedBlob) {
+        throw downloadError ?? new Error("Could not download the stored syllabus.");
+      }
+
+      candidate = new File([storedBlob], storedFile.file_name, {
+        type: storedFile.mime_type || "application/pdf",
+      });
+    }
+
+    if (!candidate) {
       return NextResponse.json(
         {
           ok: false,
-          error: "A syllabus PDF is required.",
+          requestId,
+          error: "A stored syllabus PDF is required.",
         },
         { status: 400 },
       );
@@ -342,6 +396,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
+          requestId,
           error: "The syllabus must be a PDF.",
         },
         { status: 400 },
@@ -352,6 +407,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
+          requestId,
           error: "The syllabus PDF is too large. Keep it under 30 MB.",
         },
         { status: 413 },
@@ -366,6 +422,7 @@ export async function POST(request: Request) {
           ok: false,
           code: "PDF_TEXT_NOT_EXTRACTABLE",
           retryable: false,
+          requestId,
           error:
             "This PDF contains too little extractable text. It may be scanned or image-based. OCR fallback has not been enabled yet.",
         },
@@ -397,6 +454,7 @@ ${text}`,
 
     return NextResponse.json({
       ok: true,
+      requestId,
       provider: "groq",
       model:
         process.env.GROQ_SYLLABUS_MODEL ||
@@ -418,6 +476,7 @@ ${text}`,
       return NextResponse.json(
         {
           ok: false,
+          requestId,
           code: "GROQ_RATE_LIMITED",
           retryable: true,
           error:
@@ -431,6 +490,7 @@ ${text}`,
       return NextResponse.json(
         {
           ok: false,
+          requestId,
           code: "GROQ_AUTH_FAILED",
           retryable: false,
           error:
@@ -443,6 +503,7 @@ ${text}`,
     return NextResponse.json(
       {
         ok: false,
+        requestId,
         code: "GROQ_ANALYSIS_FAILED",
         retryable: true,
         error: message,

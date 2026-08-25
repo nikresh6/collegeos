@@ -1,7 +1,7 @@
 import {
   NextResponse,
 } from "next/server";
-import Groq from "groq-sdk";
+import { getGroqClient } from "../../../../lib/ai/groq";
 import {
   userContext,
 } from "../../../../lib/server-auth";
@@ -47,12 +47,6 @@ type Course = {
   name: string;
   color: string;
 };
-
-const groq =
-  new Groq({
-    apiKey:
-      process.env.GROQ_API_KEY,
-  });
 
 const MODELS = [
   "openai/gpt-oss-20b",
@@ -477,7 +471,7 @@ async function groundedCompletion({
   ) {
     try {
       const completion =
-        await groq.chat.completions.create({
+        await getGroqClient().chat.completions.create({
           model,
           messages: [
             {

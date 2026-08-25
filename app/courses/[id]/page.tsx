@@ -38,6 +38,7 @@ import {
   useSchoolIdentity,
 } from "../../../components/school-identity";
 import { SourceCapturePicker } from "../../../components/source-capture";
+import { CalendarScheduleCoach } from "../../../components/calendar-schedule-coach";
 import {
   createLectureMaterial,
   lectureDepthLabel,
@@ -1369,8 +1370,6 @@ export default function CoursePage() {
       return;
     }
 
-    let retryableFailure = false;
-
     try {
       setAnalyzingSyllabus(true);
       setAnalysisError("");
@@ -1391,53 +1390,36 @@ export default function CoursePage() {
           : current,
       );
 
-      const { data: syllabusBlob, error: downloadError } =
-        await supabase.storage
-          .from("course-files")
-          .download(syllabus.storage_path);
-
-      if (downloadError) {
-        throw downloadError;
-      }
-
-      if (!syllabusBlob) {
-        throw new Error("Could not download the syllabus for analysis.");
-      }
-
-      const file = new File([syllabusBlob], syllabus.file_name, {
-        type: syllabus.mime_type || "application/pdf",
-      });
-
-      const formData = new FormData();
-      formData.append("file", file);
-
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("You must be signed in.");
 
-      formData.append("courseId", courseId);
       const response = await fetch("/api/analyze-syllabus", {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ courseId, courseFileId: syllabus.id }),
       });
 
-      let result: unknown;
+      const responseText = await response.text();
+      let result: unknown = null;
 
       try {
-        result = await response.json();
+        result = responseText ? JSON.parse(responseText) : null;
       } catch {
         throw new Error(
-          "The syllabus analysis server returned an invalid response.",
+          response.status === 504
+            ? "Syllabus analysis timed out. Your PDF is safe—tap Analyze to retry."
+            : `Syllabus analysis failed on the server (HTTP ${response.status}). Try again; if it repeats, the deployment is missing its AI configuration.`,
         );
       }
 
       const resultRecord = isAnalysisRecord(result) ? result : {};
 
       if (!response.ok || resultRecord.ok !== true) {
-        retryableFailure = resultRecord.retryable === true;
-
         const errorCode = analysisString(resultRecord.code);
         let message =
           analysisString(resultRecord.error) ||
@@ -1448,7 +1430,7 @@ export default function CoursePage() {
             "Groq's current usage limit was reached. Your syllabus is safe. Try again after the limit resets.";
         } else if (errorCode === "GROQ_AUTH_FAILED") {
           message =
-            "Groq authentication failed. Check your GROQ_API_KEY and restart the development server.";
+            "The deployed AI service is not configured. Add GROQ_API_KEY to the Vercel Production environment and redeploy.";
         }
 
         throw new Error(message);
@@ -1491,7 +1473,9 @@ export default function CoursePage() {
       setAnalysisError(message);
 
       if (syllabus) {
-        const nextStatus = retryableFailure ? "uploaded" : "error";
+        // A failed analysis must never make a successfully uploaded syllabus
+        // look broken or prevent the student from trying again.
+        const nextStatus = "uploaded";
 
         const { error: statusError } = await supabase
           .from("course_files")
@@ -2147,7 +2131,7 @@ function OverviewTab({
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-[26px] border border-white/[0.07] bg-white/[0.018]">
+          <div className="grid gap-3 lg:grid-cols-2">
             <SyllabusSetupRow
               syllabus={syllabus}
               uploading={uploadingSyllabus}
@@ -2176,8 +2160,19 @@ function OverviewTab({
               error={calendarUploadError}
               onAction={onChooseCalendar}
               onView={courseCalendar ? onOpenCalendar : undefined}
-              last
             />
+
+            {courseCalendar && (
+              <div className="lg:col-span-2">
+                <CalendarScheduleCoach
+                  courses={[course]}
+                  accent={course.color}
+                  sourceFileId={courseCalendar.id}
+                  sourceCourseId={course.id}
+                  onApplied={() => undefined}
+                />
+              </div>
+            )}
           </div>
 
           {(analyzingSyllabus || analysisError) && (
@@ -5654,8 +5649,8 @@ function SyllabusSetupRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="border-b border-white/[0.055]">
-      <div className="group grid gap-4 p-5 transition hover:bg-white/[0.02] sm:grid-cols-[44px_minmax(0,1fr)] sm:items-center lg:grid-cols-[44px_minmax(0,1fr)_auto]">
+    <div className="overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">
+      <div className="group grid grid-cols-[44px_minmax(0,1fr)] gap-4 p-5 transition hover:bg-white/[0.02] sm:items-center">
         <div
           className="flex h-10 w-10 items-center justify-center rounded-[13px]"
           style={{ backgroundColor: `${color}10` }}
@@ -5717,13 +5712,13 @@ function SyllabusSetupRow({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:col-start-2 lg:col-start-auto">
+        <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:col-start-2 sm:flex sm:flex-wrap">
           {syllabus && !uploading && !analyzed && (
             <button
               type="button"
               onClick={onAnalyze}
               disabled={analyzing}
-              className="flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[10px] font-medium text-black transition hover:bg-white/88 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center justify-center gap-1.5 rounded-full bg-white px-3 py-2 text-[10px] font-medium text-black transition hover:bg-white/88 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {analyzing ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -5752,7 +5747,7 @@ function SyllabusSetupRow({
             <button
               type="button"
               onClick={onOpen}
-              className="flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-medium text-white/34 transition hover:bg-white/[0.04] hover:text-white/70"
+              className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] px-3 py-2 text-[10px] font-medium text-white/42 transition hover:bg-white/[0.04] hover:text-white/70"
             >
               <ExternalLink size={12} />
               View
@@ -5763,7 +5758,7 @@ function SyllabusSetupRow({
             type="button"
             onClick={onChoose}
             disabled={uploading || analyzing}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-white/38 transition hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-35"
+            className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] px-3 py-2 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.04] hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-35"
           >
             {uploading
               ? "Uploading..."
@@ -5779,7 +5774,7 @@ function SyllabusSetupRow({
               type="button"
               onClick={onDelete}
               aria-label="Delete syllabus"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 transition hover:bg-red-500/10 hover:text-red-400"
+              className="flex h-8 w-full items-center justify-center rounded-full border border-white/[0.06] text-white/24 transition hover:bg-red-500/10 hover:text-red-400 sm:w-8"
             >
               <Trash2 size={13} />
             </button>
@@ -6192,7 +6187,6 @@ function SetupRow({
   error,
   onAction,
   onView,
-  last = false,
 }: {
   icon: React.ElementType;
   title: string;
@@ -6204,11 +6198,10 @@ function SetupRow({
   error?: string;
   onAction?: () => void;
   onView?: () => void;
-  last?: boolean;
 }) {
   return (
-    <div className={last ? "" : "border-b border-white/[0.055]"}>
-      <div className="group grid gap-4 p-5 transition hover:bg-white/[0.02] sm:grid-cols-[44px_minmax(0,1fr)] sm:items-center lg:grid-cols-[44px_minmax(0,1fr)_auto]">
+    <div className="overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">
+      <div className="group grid grid-cols-[44px_minmax(0,1fr)] gap-4 p-5 transition hover:bg-white/[0.02] sm:items-center">
         <div
           className="flex h-10 w-10 items-center justify-center rounded-[13px]"
           style={{ backgroundColor: `${color}10` }}
@@ -6231,9 +6224,9 @@ function SetupRow({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:col-start-2 lg:col-start-auto">
+        <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:col-start-2 sm:flex sm:flex-wrap">
           {onView && (
-            <button type="button" onClick={onView} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-medium text-white/34 transition hover:bg-white/[0.04] hover:text-white/70">
+            <button type="button" onClick={onView} className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] px-3 py-2 text-[10px] font-medium text-white/42 transition hover:bg-white/[0.04] hover:text-white/70">
               <ExternalLink size={12} /> View
             </button>
           )}
@@ -6241,7 +6234,7 @@ function SetupRow({
             type="button"
             onClick={onAction}
             disabled={busy || !onAction}
-            className="flex w-fit items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.045] hover:text-white/78 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.045] hover:text-white/78 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Uploading…" : action}
             {!busy && <ChevronRight size={12} />}
