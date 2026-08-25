@@ -64,11 +64,12 @@ export type SyllabusPipelineChunk = {
 };
 
 export type SyllabusPipelineState = {
-  pipelineVersion: 1;
+  pipelineVersion: 2;
   status: "processing" | "complete";
   fileName: string;
   pageCount: number;
   chunks: SyllabusPipelineChunk[];
+  deterministicFacts: SyllabusAnalysis;
   result: SyllabusAnalysis | null;
 };
 
@@ -128,39 +129,118 @@ function uniqueStrings(values: string[]) {
 }
 
 export function buildSyllabusChunks(pageTexts: string[]) {
-  const pieces: string[] = [];
+  const chunks: string[] = [];
 
   pageTexts.forEach((rawPage, pageIndex) => {
     const page = compact(rawPage);
     if (!page) return;
 
     if (page.length <= TARGET_CHUNK_CHARACTERS) {
-      pieces.push(`===== PAGE ${pageIndex + 1} =====\n${page}`);
+      chunks.push(`===== PAGE ${pageIndex + 1} =====\n${page}`);
       return;
     }
 
     const step = TARGET_CHUNK_CHARACTERS - CHUNK_OVERLAP_CHARACTERS;
     for (let start = 0; start < page.length; start += step) {
       const fragment = page.slice(start, start + TARGET_CHUNK_CHARACTERS);
-      pieces.push(
+      chunks.push(
         `===== PAGE ${pageIndex + 1} PART ${Math.floor(start / step) + 1} =====\n${fragment}`,
       );
     }
   });
+  return chunks;
+}
 
-  const chunks: string[] = [];
-  let current = "";
+function gradeIdentity(value: string) {
+  return compact(value).toUpperCase().replace(/\s+/g, "");
+}
 
-  for (const piece of pieces) {
-    if (current && current.length + piece.length + 2 > TARGET_CHUNK_CHARACTERS) {
-      chunks.push(current);
-      current = "";
-    }
-    current = current ? `${current}\n\n${piece}` : piece;
+function assessmentIdentity(value: string) {
+  return key(value)
+    .replace(/\b(exam|examination)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasSpecificDate(value: string) {
+  const normalized = key(value);
+  return Boolean(
+    normalized &&
+      normalized !== "not specified" &&
+      normalized !== "tbd" &&
+      normalized !== "to be determined",
+  );
+}
+
+export function deriveDeterministicSyllabusFacts(
+  sourceText: string,
+): SyllabusAnalysis {
+  const facts = emptyAnalysis();
+  const normalized = sourceText
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const gradePattern =
+    /\b(A\+|A-|A|B\+|B-|B|C\+|C-|C|D\+|D-|D|F)\s+(\d{1,3}(?:\.\d+)?)\s*-\s*(\d{1,3}(?:\.\d+)?)/g;
+  for (const match of normalized.matchAll(gradePattern)) {
+    const first = Number(match[2]);
+    const second = Number(match[3]);
+    facts.gradingScale.push({
+      letterGrade: match[1],
+      minPercent: Math.min(first, second),
+      maxPercent: Math.max(first, second),
+      notes: "",
+    });
+  }
+  facts.gradingScale = dedupeBy(
+    facts.gradingScale,
+    (item) => gradeIdentity(item.letterGrade),
+  );
+
+  const categoryPattern =
+    /([A-Z][A-Za-z0-9’'&/ -]{2,60}?):\s*\(\s*(\d+(?:\.\d+)?)\s*%(?:[^)]*)\)/g;
+  for (const match of normalized.matchAll(categoryPattern)) {
+    const name = compact(match[1])
+      .replace(/^.*\b(?:components and weights|weights)\s+/i, "")
+      .replace(/^(?:and|or)\s+/i, "");
+    const weightPercent = Number(match[2]);
+    if (!name || !Number.isFinite(weightPercent) || weightPercent <= 0) continue;
+    facts.gradingCategories.push({ name, weightPercent, notes: "" });
+  }
+  facts.gradingCategories = dedupeBy(
+    facts.gradingCategories,
+    (item) => key(item.name),
+  );
+
+  const midtermPattern =
+    /\b(Midterm\s+\d+)\s*,\s*((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*,\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s+at\s+[^.]+)?)/gi;
+  for (const match of normalized.matchAll(midtermPattern)) {
+    facts.assessments.push({
+      name: compact(match[1]),
+      type: "Exam",
+      date: compact(match[2]),
+      notes: "",
+    });
+    facts.importantDates.push({
+      name: compact(match[1]),
+      date: compact(match[2]),
+      type: "exam",
+    });
   }
 
-  if (current) chunks.push(current);
-  return chunks;
+  const finalOptionPattern =
+    /\b((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*,\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+at\s+(?:\d{1,2}(?::\d{2})?\s*(?:a\.m\.|p\.m\.)|noon|midnight))/gi;
+  for (const match of normalized.matchAll(finalOptionPattern)) {
+    const date = compact(match[1]);
+    facts.importantDates.push({
+      name: "Final Exam option",
+      date,
+      type: "exam",
+    });
+  }
+
+  return facts;
 }
 
 function unitFor(
@@ -282,6 +362,33 @@ function dedupeBy<T>(items: T[], keyFor: (item: T) => string) {
   });
 }
 
+function mergeAssessments(items: SyllabusAnalysis["assessments"]) {
+  const merged = new Map<string, SyllabusAnalysis["assessments"][number]>();
+
+  for (const item of items) {
+    const identity = assessmentIdentity(item.name) || key(item.name, item.type);
+    if (!identity) continue;
+    const existing = merged.get(identity);
+    if (!existing) {
+      merged.set(identity, { ...item });
+      continue;
+    }
+
+    const incomingHasDate = hasSpecificDate(item.date);
+    const existingHasDate = hasSpecificDate(existing.date);
+    if (incomingHasDate && !existingHasDate) {
+      existing.date = item.date;
+      existing.name = item.name || existing.name;
+    }
+    existing.type ||= item.type;
+    existing.notes = uniqueStrings([existing.notes, item.notes])
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  return [...merged.values()];
+}
+
 export function mergeSyllabusChunkAnalyses(
   chunks: SyllabusAnalysis[],
 ): SyllabusAnalysis {
@@ -324,15 +431,24 @@ export function mergeSyllabusChunkAnalyses(
   );
   merged.gradingScale = dedupeBy(
     merged.gradingScale,
-    (item) => key(item.letterGrade),
+    (item) => gradeIdentity(item.letterGrade),
   );
-  merged.assessments = dedupeBy(
-    merged.assessments,
-    (item) => key(item.name, item.date),
-  );
+
+  merged.assessments = mergeAssessments(merged.assessments);
+  for (const assessment of merged.assessments) {
+    if (!hasSpecificDate(assessment.date)) continue;
+    merged.importantDates.push({
+      name: assessment.name,
+      date: assessment.date,
+      type: assessment.type || "assessment",
+    });
+  }
   merged.importantDates = dedupeBy(
     merged.importantDates,
-    (item) => key(item.name, item.date),
+    (item) =>
+      /\boption\b/i.test(item.name)
+        ? key(item.name, item.date)
+        : assessmentIdentity(item.name) || key(item.name, item.date),
   );
   merged.policies = dedupeBy(
     merged.policies,
@@ -358,7 +474,35 @@ export function mergeSyllabusChunkAnalyses(
     (topic) => key(topic.name, topic.date, topic.assignment),
   );
   merged.scheduleNotes = uniqueStrings(merged.scheduleNotes);
-  merged.warnings = uniqueStrings(merged.warnings);
+  merged.warnings = uniqueStrings(merged.warnings).filter((warning) => {
+    const normalized = warning.toLowerCase();
+    if (
+      merged.gradingScale.length &&
+      normalized.includes("no explicit grading scale")
+    ) {
+      return false;
+    }
+    if (
+      merged.gradingCategories.length &&
+      normalized.includes("no grading categories")
+    ) {
+      return false;
+    }
+    if (
+      (merged.courseInfo.courseCode || merged.courseInfo.courseName) &&
+      (normalized.includes("no explicit course metadata") ||
+        normalized.includes("course code, course name, professor, term"))
+    ) {
+      return false;
+    }
+    if (
+      (merged.units.length || merged.unassignedTopics.length) &&
+      normalized.includes("no explicit unit hierarchy or schedule dates")
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   const confidenceValues = chunks
     .map((chunk) => chunk.overallConfidence)
@@ -379,8 +523,9 @@ export function isSyllabusPipelineState(
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Partial<SyllabusPipelineState>;
   return (
-    candidate.pipelineVersion === 1 &&
+    candidate.pipelineVersion === 2 &&
     (candidate.status === "processing" || candidate.status === "complete") &&
-    Array.isArray(candidate.chunks)
+    Array.isArray(candidate.chunks) &&
+    Boolean(candidate.deterministicFacts)
   );
 }
