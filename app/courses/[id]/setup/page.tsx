@@ -28,6 +28,7 @@ import {
   MotionConfig,
 } from "framer-motion";
 import { supabase } from "../../../../lib/supabase";
+import { parseSyllabusDateRange } from "../../../../lib/syllabus-date";
 
 type Course = {
   id: string;
@@ -944,7 +945,7 @@ export default function ReviewCourseSetupPage() {
             position: topicIndex,
             source: "syllabus",
             source_date_text: topic.date.trim() || null,
-            scheduled_date: parseDateRange(
+            scheduled_date: parseSyllabusDateRange(
               topic.date,
               analysis.courseInfo.term,
             ).start,
@@ -965,7 +966,7 @@ export default function ReviewCourseSetupPage() {
           position: index,
           source: "syllabus",
           source_date_text: topic.date.trim() || null,
-          scheduled_date: parseDateRange(
+          scheduled_date: parseSyllabusDateRange(
             topic.date,
             analysis.courseInfo.term,
           ).start,
@@ -993,7 +994,8 @@ export default function ReviewCourseSetupPage() {
         const cleanName = name.trim();
         if (!cleanName) return;
 
-        const parsed = parseDateRange(date, analysis.courseInfo.term);
+        const parsed = parseSyllabusDateRange(date, analysis.courseInfo.term);
+        if (!parsed.start) return;
         const key = `${cleanName.toLowerCase()}|${date.trim().toLowerCase()}`;
 
         eventMap.set(key, {
@@ -1015,6 +1017,35 @@ export default function ReviewCourseSetupPage() {
       analysis.assessments.forEach((item) =>
         addEvent(item.name, item.date, item.type, item.notes),
       );
+
+      const scheduledTopics = [
+        ...analysis.units.flatMap((unit) => unit.topics),
+        ...analysis.unassignedTopics,
+      ];
+
+      scheduledTopics.forEach((topic) => {
+        if (!topic.date.trim()) return;
+
+        const context = [
+          topic.reading.trim() ? `Reading: ${topic.reading.trim()}` : "",
+          topic.assignment.trim()
+            ? `Assignment: ${topic.assignment.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        addEvent(topic.name, topic.date, "schedule", context);
+
+        if (topic.assignment.trim()) {
+          addEvent(
+            topic.assignment,
+            topic.date,
+            "assignment",
+            topic.name ? `Scheduled with ${topic.name}` : "",
+          );
+        }
+      });
 
       const eventRows = [...eventMap.values()];
 
@@ -2409,78 +2440,4 @@ function normalizeEventType(value: string) {
     return "schedule";
   }
   return "other";
-}
-
-function parseDateRange(dateText: string, term: string) {
-  const clean = dateText.trim();
-
-  if (!clean) {
-    return { start: null as string | null, end: null as string | null };
-  }
-
-  const yearMatch = `${term} ${clean}`.match(/\b(20\d{2}|19\d{2})\b/);
-  const year = yearMatch ? Number(yearMatch[1]) : null;
-
-  if (!year) {
-    return { start: null as string | null, end: null as string | null };
-  }
-
-  const months: Record<string, number> = {
-    january: 1,
-    february: 2,
-    march: 3,
-    april: 4,
-    may: 5,
-    june: 6,
-    july: 7,
-    august: 8,
-    september: 9,
-    october: 10,
-    november: 11,
-    december: 12,
-    jan: 1,
-    feb: 2,
-    mar: 3,
-    apr: 4,
-    jun: 6,
-    jul: 7,
-    aug: 8,
-    sep: 9,
-    sept: 9,
-    oct: 10,
-    nov: 11,
-    dec: 12,
-  };
-
-  const monthMatch = clean
-    .toLowerCase()
-    .match(
-      /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b/,
-    );
-
-  if (!monthMatch) {
-    return { start: null as string | null, end: null as string | null };
-  }
-
-  const month = months[monthMatch[1]];
-  const afterMonth = clean.slice(
-    clean.toLowerCase().indexOf(monthMatch[1]) + monthMatch[1].length,
-  );
-
-  const dayMatch = afterMonth.match(/\b(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?/);
-
-  if (!dayMatch) {
-    return { start: null as string | null, end: null as string | null };
-  }
-
-  const startDay = Number(dayMatch[1]);
-  const endDay = dayMatch[2] ? Number(dayMatch[2]) : startDay;
-
-  const format = (day: number) =>
-    `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-  return {
-    start: format(startDay),
-    end: endDay !== startDay ? format(endDay) : null,
-  };
 }
