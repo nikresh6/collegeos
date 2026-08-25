@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "rootDir": "..",
+    "outDir": "../.ai-test-build"
+  },
+  "include": ["./ai-contracts.test.ts", "../types/**/*.d.ts"]
+}
