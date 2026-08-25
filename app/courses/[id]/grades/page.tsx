@@ -1088,7 +1088,7 @@ function GradeCoach({
   course: Course;
   categories: GradeCategory[];
   items: GradeItem[];
-  scale: GradeScaleRow[];
+  scale: GradeScaleInput[];
   summary: ReturnType<typeof calculateGradebook>;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([

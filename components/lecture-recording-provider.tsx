@@ -179,7 +179,7 @@ export function LectureRecordingProvider({
   const analyserFrameRef =
     useRef<number | null>(null);
   const analyserDataRef =
-    useRef<Uint8Array | null>(null);
+    useRef<Uint8Array<ArrayBuffer> | null>(null);
   const lastAnalyserPaintRef =
     useRef(0);
 

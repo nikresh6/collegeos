@@ -177,18 +177,18 @@ function normalizeAnalysis(value: unknown): SyllabusAnalysis {
     "grading_scale",
   )
     .map((entry) => {
-      const item = isAnalysisRecord(entry) ? entry : {};
+      const item = isRecord(entry) ? entry : {};
       return {
-        letterGrade: analysisString(
+        letterGrade: stringValue(
           item.letterGrade ?? item.grade ?? item.letter ?? item.label,
         ),
-        minPercent: analysisNumber(
+        minPercent: numberValue(
           item.minPercent ?? item.minimum ?? item.min ?? item.lowerBound,
         ),
-        maxPercent: analysisNumber(
+        maxPercent: numberValue(
           item.maxPercent ?? item.maximum ?? item.max ?? item.upperBound,
         ),
-        notes: analysisString(
+        notes: stringValue(
           item.notes ?? item.details ?? item.description,
         ),
       };
@@ -353,10 +353,6 @@ export default function ReviewCourseSetupPage() {
   const [error, setError] = useState("");
   const [openUnits, setOpenUnits] = useState<Record<number, boolean>>({});
 
-  useEffect(() => {
-    void initialize();
-  }, [courseId]);
-
   const gradingTotal = useMemo(
     () =>
       analysis?.gradingCategories.reduce(
@@ -435,6 +431,10 @@ export default function ReviewCourseSetupPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    void initialize();
+  }, [courseId]);
 
   function updateCourseInfo(
     key: keyof SyllabusAnalysis["courseInfo"],

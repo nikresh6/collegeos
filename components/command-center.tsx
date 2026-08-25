@@ -5,7 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
   ArrowRight,
@@ -239,7 +239,7 @@ export function CommandCenter() {
 
   useEffect(() => {
     function handleKeyDown(
-      event: KeyboardEvent,
+      event: globalThis.KeyboardEvent,
     ) {
       if (
         (
@@ -594,7 +594,7 @@ export function CommandCenter() {
   }
 
   function handleInputKeyDown(
-    event: KeyboardEvent<HTMLInputElement>,
+    event: ReactKeyboardEvent<HTMLInputElement>,
   ) {
     if (
       event.key !==

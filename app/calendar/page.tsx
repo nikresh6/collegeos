@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import FullCalendar from "@fullcalendar/react";
+import FullCalendar, { type CalendarRef } from "@fullcalendar/react";
 import themePlugin from "@fullcalendar/react/themes/classic";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
@@ -434,7 +434,7 @@ export default function CalendarPage() {
     useSchoolIdentity();
 
   const calendarRef =
-    useRef<FullCalendar | null>(
+    useRef<CalendarRef | null>(
       null,
     );
 
@@ -2549,23 +2549,23 @@ export default function CalendarPage() {
                     datesSet={
                       handleCalendarDatesSet
                     }
-                    dayHeaderAlign="left"
+                    dayHeaderAlign="start"
                     dayHeaderClass="student-calendar-day-header"
                     dayHeaderContent={(
                       info: any,
                     ) => {
+                      const calendar =
+                        info.view.calendar;
                       const weekday =
-                        new Intl.DateTimeFormat(
-                          undefined,
-                          {
-                            weekday:
-                              "short",
-                          },
-                        ).format(
+                        calendar.formatDate(
                           info.date,
+                          { weekday: "short" },
                         );
                       const day =
-                        info.date.getDate();
+                        calendar.formatDate(
+                          info.date,
+                          { day: "numeric" },
+                        );
 
                       return (
                         <div

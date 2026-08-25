@@ -746,7 +746,7 @@ export async function buildAttentionSnapshot({
     const daysAway =
       daysBetween(
         today,
-        event.start_date,
+        rawEvent.start_date,
       );
 
     const preparedness =
