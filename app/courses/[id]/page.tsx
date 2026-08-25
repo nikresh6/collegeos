@@ -1937,15 +1937,6 @@ export default function CoursePage() {
                       <GraduationCap size={13} />
                       Study this course
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => router.push("/")}
-                      className="flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.015] px-4 py-2.5 text-[11px] font-medium text-white/42 transition hover:bg-white/[0.035] hover:text-white/68 md:hidden"
-                    >
-                      <Home size={12} />
-                      Home
-                    </button>
                   </div>
                 </div>
 
@@ -1965,7 +1956,7 @@ export default function CoursePage() {
             </section>
 
             {/* Mobile course navigation */}
-            <div className="mt-10 flex gap-1 overflow-x-auto border-b border-white/[0.06] pb-0 md:hidden">
+            <div className="mt-10 flex snap-x gap-1 overflow-x-auto border-b border-white/[0.06] pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:hidden">
               <MobileTab
                 label="Overview"
                 active={activeTab === "overview"}
@@ -5709,10 +5700,10 @@ function SyllabusSetupRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">
-      <div className="group grid grid-cols-[44px_minmax(0,1fr)] gap-4 p-5 transition hover:bg-white/[0.02] sm:items-center">
+    <div className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">
+      <div className="group flex min-w-0 items-start gap-4 p-5 transition hover:bg-white/[0.02]">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-[13px]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px]"
           style={{ backgroundColor: `${color}10` }}
         >
           {uploading || analyzing ? (
@@ -5772,13 +5763,15 @@ function SyllabusSetupRow({
           )}
         </div>
 
-        <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:col-start-2 sm:flex sm:flex-wrap">
+      </div>
+
+      <div className="flex min-h-14 flex-wrap items-center gap-2 border-t border-white/[0.055] bg-black/[0.08] px-5 py-3">
           {syllabus && !uploading && !analyzed && (
             <button
               type="button"
               onClick={onAnalyze}
               disabled={analyzing}
-              className="flex items-center justify-center gap-1.5 rounded-full bg-white px-3 py-2 text-[10px] font-medium text-black transition hover:bg-white/88 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 text-[10px] font-medium text-black transition hover:bg-white/88 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {analyzing ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -5791,7 +5784,7 @@ function SyllabusSetupRow({
 
           {syllabus && !uploading && analyzed && (
             <div
-              className="flex items-center gap-1.5 rounded-full border px-3 py-2 text-[10px] font-medium"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[10px] font-medium"
               style={{
                 borderColor: `${color}22`,
                 backgroundColor: `${color}09`,
@@ -5807,7 +5800,7 @@ function SyllabusSetupRow({
             <button
               type="button"
               onClick={onOpen}
-              className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] px-3 py-2 text-[10px] font-medium text-white/42 transition hover:bg-white/[0.04] hover:text-white/70"
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.07] px-3 text-[10px] font-medium text-white/42 transition hover:bg-white/[0.04] hover:text-white/70"
             >
               <ExternalLink size={12} />
               View
@@ -5818,7 +5811,7 @@ function SyllabusSetupRow({
             type="button"
             onClick={onChoose}
             disabled={uploading || analyzing}
-            className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] px-3 py-2 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.04] hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-35"
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.07] px-3 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.04] hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-35"
           >
             {uploading
               ? "Uploading..."
@@ -5834,12 +5827,11 @@ function SyllabusSetupRow({
               type="button"
               onClick={onDelete}
               aria-label="Delete syllabus"
-              className="flex h-8 w-full items-center justify-center rounded-full border border-white/[0.06] text-white/24 transition hover:bg-red-500/10 hover:text-red-400 sm:w-8"
+              className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.06] text-white/24 transition hover:bg-red-500/10 hover:text-red-400"
             >
               <Trash2 size={13} />
             </button>
           )}
-        </div>
       </div>
 
       {error && (
@@ -6260,10 +6252,10 @@ function SetupRow({
   onView?: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">
-      <div className="group grid grid-cols-[44px_minmax(0,1fr)] gap-4 p-5 transition hover:bg-white/[0.02] sm:items-center">
+    <div className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.018]">
+      <div className="group flex min-w-0 items-start gap-4 p-5 transition hover:bg-white/[0.02]">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-[13px]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px]"
           style={{ backgroundColor: `${color}10` }}
         >
           {busy ? <Loader2 size={17} className="animate-spin" style={{ color }} /> : <Icon size={17} style={{ color }} />}
@@ -6284,9 +6276,11 @@ function SetupRow({
           </p>
         </div>
 
-        <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:col-start-2 sm:flex sm:flex-wrap">
+      </div>
+
+      <div className="flex min-h-14 flex-wrap items-center gap-2 border-t border-white/[0.055] bg-black/[0.08] px-5 py-3">
           {onView && (
-            <button type="button" onClick={onView} className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] px-3 py-2 text-[10px] font-medium text-white/42 transition hover:bg-white/[0.04] hover:text-white/70">
+            <button type="button" onClick={onView} className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.07] px-3 text-[10px] font-medium text-white/42 transition hover:bg-white/[0.04] hover:text-white/70">
               <ExternalLink size={12} /> View
             </button>
           )}
@@ -6294,12 +6288,11 @@ function SetupRow({
             type="button"
             onClick={onAction}
             disabled={busy || !onAction}
-            className="flex items-center justify-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.045] hover:text-white/78 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.07] bg-white/[0.02] px-3 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.045] hover:text-white/78 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Uploading…" : action}
             {!busy && <ChevronRight size={12} />}
           </button>
-        </div>
       </div>
       {error && (
         <div className="border-t border-red-500/10 bg-red-500/[0.035] px-5 py-3 sm:pl-[84px]">
