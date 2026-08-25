@@ -264,7 +264,10 @@ STRICT RULES:
 22. Preserve every explicit scheduled topic even when there are many topics.
 23. Be concise in notes, descriptions, policies, basis, and coverage fields. Do not repeat the same information in multiple prose fields.
 24. For assessment-based units, description may be an empty string when the unit name, assessmentName, basis, and coverage already make the grouping clear.
-25. Do not spend output space explaining your reasoning. Return only the structured extraction.`;
+25. For every dated schedule row, create a topic with the class meeting date, topic/title, reading, and assignment exactly as supported by that row. A calendar table is course evidence even when it has no heading named "Unit".
+26. importantDates must include every explicit assignment deadline, exam/quiz date, project milestone, holiday, break, cancellation, and other date that belongs on a student's calendar. If an assignment's due date differs from its lecture/topic date, preserve the due date in importantDates rather than attaching it to the lecture date.
+27. assessments should include every explicitly named graded assessment. gradingCategories must preserve every explicit category and weight, and gradingScale must preserve every explicit cutoff.
+28. Do not spend output space explaining your reasoning. Return only the structured extraction.`;
 
 function isGroqRateLimitError(message: string) {
   const lower = message.toLowerCase();
@@ -449,7 +452,10 @@ ${text}`,
       schemaName: "syllabus_analysis",
       schema: syllabusSchema,
       temperature: 0.05,
-      maxTokens: 4200,
+      // A full semester schedule can contain dozens of rows. The earlier cap
+      // could truncate otherwise-valid structured JSON before its closing
+      // brace, making analysis look like a server failure.
+      maxTokens: 8000,
     });
 
     return NextResponse.json({

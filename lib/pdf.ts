@@ -16,6 +16,13 @@ export async function extractPdfText(file: File) {
   serverGlobals.Path2D ??=
     canvas.Path2D as unknown as typeof globalThis.Path2D;
 
+  // PDF.js disables real workers in Node and falls back to its worker module
+  // in-process. Its internal fallback uses a relative dynamic import that
+  // points at a non-existent Next.js chunk after Vercel bundles the route.
+  // Importing the worker explicitly registers WorkerMessageHandler on
+  // globalThis.pdfjsWorker, which PDF.js checks before attempting that import.
+  await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+
   // Keep pdf.js out of the route's module initialization. If the deployment is
   // missing an optional PDF runtime dependency, the request can now return a
   // useful JSON error instead of Next.js/Vercel returning an HTML 500 page.
