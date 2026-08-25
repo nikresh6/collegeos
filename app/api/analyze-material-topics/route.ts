@@ -4,6 +4,7 @@ import {
   extractMaterialText,
   sampleMaterialText,
 } from "../../../lib/material-text";
+import { userContext } from "../../../lib/server-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,40 +85,6 @@ STRICT RULES:
 13. Keep rationale and reasons concise.
 14. Return only the structured result.`;
 
-function parseTopics(value: FormDataEntryValue | null): CandidateTopic[] {
-  if (typeof value !== "string") return [];
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.flatMap((item): CandidateTopic[] => {
-        if (
-          typeof item !== "object" ||
-          item === null ||
-          typeof (item as Record<string, unknown>).id !== "string" ||
-          typeof (item as Record<string, unknown>).name !== "string"
-        ) {
-          return [];
-        }
-
-        const record = item as Record<string, unknown>;
-
-        return [{
-          id: String(record.id),
-          name: String(record.name),
-          parentTopicId:
-            typeof record.parentTopicId === "string"
-              ? record.parentTopicId
-              : null,
-        }];
-      });
-  } catch {
-    return [];
-  }
-}
-
 function cleanSuggestedFileName(
   suggested: string,
   originalName: string,
@@ -141,14 +108,19 @@ function cleanSuggestedFileName(
 }
 
 export async function POST(request: Request) {
+  const context = await userContext(request);
+  if (!context) {
+    return NextResponse.json(
+      { ok: false, error: "You are not signed in." },
+      { status: 401 },
+    );
+  }
+
   try {
     const formData = await request.formData();
     const candidate = formData.get("file");
-    const unitName =
-      typeof formData.get("unitName") === "string"
-        ? String(formData.get("unitName"))
-        : "";
-    const topics = parseTopics(formData.get("topics"));
+    const courseId = String(formData.get("courseId") ?? "").trim();
+    const unitId = String(formData.get("unitId") ?? "").trim();
 
     if (!(candidate instanceof File)) {
       return NextResponse.json(
@@ -160,7 +132,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!unitName.trim()) {
+    if (!courseId || !unitId) {
       return NextResponse.json(
         {
           ok: false,
@@ -169,6 +141,39 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    const [{ data: unit, error: unitError }, { data: topicRows, error: topicsError }] =
+      await Promise.all([
+        context.supabase
+          .from("course_units")
+          .select("id, name")
+          .eq("id", unitId)
+          .eq("course_id", courseId)
+          .eq("user_id", context.user.id)
+          .maybeSingle(),
+        context.supabase
+          .from("course_topics")
+          .select("id, name, parent_topic_id")
+          .eq("unit_id", unitId)
+          .eq("course_id", courseId)
+          .eq("user_id", context.user.id)
+          .order("position", { ascending: true }),
+      ]);
+    if (unitError) throw unitError;
+    if (topicsError) throw topicsError;
+    if (!unit) {
+      return NextResponse.json(
+        { ok: false, error: "Choose a valid course unit." },
+        { status: 404 },
+      );
+    }
+
+    const unitName = unit.name;
+    const topics: CandidateTopic[] = (topicRows ?? []).map((topic) => ({
+      id: topic.id,
+      name: topic.name,
+      parentTopicId: topic.parent_topic_id,
+    }));
 
     if (candidate.size > 30 * 1024 * 1024) {
       return NextResponse.json(
