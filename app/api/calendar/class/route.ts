@@ -28,6 +28,50 @@ function validTime(value: unknown): value is string {
   return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value);
 }
 
+function normalizeDraft(body: Record<string, unknown>, index: number) {
+  const label = `Class ${index + 1}`;
+  const courseId = typeof body.courseId === "string" ? body.courseId : "";
+  const title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
+  const days = Array.isArray(body.daysOfWeek)
+    ? [...new Set(body.daysOfWeek.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort()
+    : [];
+  const weekPattern = typeof body.weekPattern === "string" ? body.weekPattern : "every";
+
+  if (!courseId || !title || days.length === 0) {
+    throw new Error(`${label} needs a course, title, and at least one meeting day.`);
+  }
+  if (!validTime(body.startTime) || !validTime(body.endTime) || body.endTime <= body.startTime) {
+    throw new Error(`${label} needs a valid start and end time.`);
+  }
+  if (!validDate(body.startDate) || !validDate(body.endDate) || body.endDate < body.startDate) {
+    throw new Error(`${label} needs a valid semester date range.`);
+  }
+  if (!["every", "odd", "even"].includes(weekPattern)) {
+    throw new Error(`${label} has an invalid week pattern.`);
+  }
+
+  return {
+    course_id: courseId,
+    title,
+    meeting_type: "class",
+    location:
+      typeof body.location === "string" && body.location.trim()
+        ? body.location.trim().slice(0, 300)
+        : null,
+    days_of_week: days,
+    start_time: body.startTime,
+    end_time: body.endTime,
+    start_date: body.startDate,
+    end_date: body.endDate,
+    week_pattern: weekPattern,
+    color_override:
+      typeof body.color === "string" && body.color
+        ? body.color.slice(0, 32)
+        : null,
+    is_active: true,
+  };
+}
+
 export async function POST(request: Request) {
   const token = bearerToken(request);
   if (!token) return NextResponse.json({ ok: false, error: "You are not signed in." }, { status: 401 });
@@ -39,59 +83,64 @@ export async function POST(request: Request) {
     if (userError || !user) return NextResponse.json({ ok: false, error: "You are not signed in." }, { status: 401 });
 
     const body = await request.json() as Record<string, unknown>;
-    const courseId = typeof body.courseId === "string" ? body.courseId : "";
-    const title = typeof body.title === "string" ? body.title.trim() : "";
-    const days = Array.isArray(body.daysOfWeek)
-      ? [...new Set(body.daysOfWeek.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
-      : [];
-    const weekPattern = typeof body.weekPattern === "string" ? body.weekPattern : "every";
-
-    if (!courseId || !title || days.length === 0) {
-      return NextResponse.json({ ok: false, error: "Course, title, and at least one day are required." }, { status: 400 });
-    }
-    if (!validTime(body.startTime) || !validTime(body.endTime) || body.endTime <= body.startTime) {
-      return NextResponse.json({ ok: false, error: "Enter a valid class start and end time." }, { status: 400 });
-    }
-    if (!validDate(body.startDate) || !validDate(body.endDate) || body.endDate < body.startDate) {
-      return NextResponse.json({ ok: false, error: "Enter a valid class date range." }, { status: 400 });
-    }
-    if (!["every", "odd", "even"].includes(weekPattern)) {
-      return NextResponse.json({ ok: false, error: "Invalid week pattern." }, { status: 400 });
+    const rawDrafts = Array.isArray(body.drafts)
+      ? body.drafts.filter(
+          (draft): draft is Record<string, unknown> =>
+            Boolean(draft) && typeof draft === "object" && !Array.isArray(draft),
+        )
+      : [body];
+    if (!rawDrafts.length || rawDrafts.length > 30) {
+      return NextResponse.json(
+        { ok: false, error: "Add between 1 and 30 class blocks at a time." },
+        { status: 400 },
+      );
     }
 
-    const { data: course, error: courseError } = await supabase
+    let rows: ReturnType<typeof normalizeDraft>[];
+    try {
+      rows = rawDrafts.map(normalizeDraft);
+    } catch (validationError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            validationError instanceof Error
+              ? validationError.message
+              : "One of the class blocks is invalid.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const courseIds = [...new Set(rows.map((row) => row.course_id))];
+
+    const { data: ownedCourses, error: courseError } = await supabase
       .from("courses")
       .select("id")
-      .eq("id", courseId)
+      .in("id", courseIds)
       .eq("user_id", user.id)
-      .single();
+      .is("archived_at", null);
 
-    if (courseError || !course) {
-      return NextResponse.json({ ok: false, error: "Course not found." }, { status: 404 });
+    if (courseError) throw courseError;
+    if ((ownedCourses ?? []).length !== courseIds.length) {
+      return NextResponse.json({ ok: false, error: "One or more courses were not found." }, { status: 404 });
     }
 
     const { data, error } = await supabase
       .from("class_schedule_rules")
-      .insert({
+      .insert(rows.map((row) => ({
+        ...row,
         user_id: user.id,
-        course_id: courseId,
-        title,
-        meeting_type: "class",
-        location: typeof body.location === "string" && body.location.trim() ? body.location.trim() : null,
-        days_of_week: days,
-        start_time: body.startTime,
-        end_time: body.endTime,
-        start_date: body.startDate,
-        end_date: body.endDate,
-        week_pattern: weekPattern,
-        color_override: typeof body.color === "string" && body.color ? body.color.slice(0, 32) : null,
-        is_active: true,
-      })
-      .select("id, course_id, title, meeting_type, location, days_of_week, start_time, end_time, start_date, end_date, week_pattern, color_override")
-      .single();
+      })))
+      .select("id, course_id, title, meeting_type, location, days_of_week, start_time, end_time, start_date, end_date, week_pattern, color_override");
 
     if (error) throw error;
-    return NextResponse.json({ ok: true, rule: data });
+    return NextResponse.json({
+      ok: true,
+      rule: Array.isArray(body.drafts) ? undefined : data?.[0],
+      rules: data ?? [],
+      createdCount: data?.length ?? 0,
+    });
   } catch (error) {
     console.error("Calendar class creation failed:", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Could not add class." }, { status: 500 });

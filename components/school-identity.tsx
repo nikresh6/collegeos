@@ -348,11 +348,21 @@ export function SchoolMark({
   intentionally visual-only and do not print landmark names or generic
   landmark drawings. We can reintroduce school-specific art later.
 */
-export function SchoolLandmarkBackdrop() {
+export function SchoolLandmarkBackdrop({
+  opacity: _opacity,
+  align: _align,
+}: {
+  opacity?: number;
+  align?: "left" | "right" | "center";
+} = {}) {
   return null;
 }
 
-export function SchoolLandmarkLabel() {
+export function SchoolLandmarkLabel({
+  className: _className,
+}: {
+  className?: string;
+} = {}) {
   return null;
 }
 

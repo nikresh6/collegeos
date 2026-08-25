@@ -430,10 +430,13 @@ export default function CoursePage() {
   const [course, setCourse] = useState<Course | null>(null);
   const [semesterName, setSemesterName] = useState("Current semester");
   const [syllabus, setSyllabus] = useState<CourseFile | null>(null);
+  const [courseCalendar, setCourseCalendar] = useState<CourseFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [uploadingSyllabus, setUploadingSyllabus] = useState(false);
   const [syllabusError, setSyllabusError] = useState("");
+  const [calendarUploadError, setCalendarUploadError] = useState("");
+  const [uploadingCalendar, setUploadingCalendar] = useState(false);
   const [analyzingSyllabus, setAnalyzingSyllabus] = useState(false);
   const [syllabusAnalysis, setSyllabusAnalysis] =
     useState<SyllabusAnalysis | null>(null);
@@ -456,6 +459,7 @@ export default function CoursePage() {
   const [deletingCourse, setDeletingCourse] = useState(false);
 
   const syllabusInputRef = useRef<HTMLInputElement>(null);
+  const calendarInputRef = useRef<HTMLInputElement>(null);
   const courseId = params.id as string;
 
   useEffect(() => {
@@ -481,6 +485,7 @@ export default function CoursePage() {
       const [, loadedSyllabus] = await Promise.all([
         loadCourse(),
         loadSyllabus(),
+        loadCourseCalendar(),
         loadCourseStructure(),
         loadCourseMaterials(),
       ]);
@@ -494,6 +499,31 @@ export default function CoursePage() {
       setLoadingStructure(false);
       setLoadingMaterials(false);
     }
+  }
+
+  async function loadCourseCalendar() {
+    const { data, error } = await supabase
+      .from("course_files")
+      .select(
+        "id, file_name, storage_path, mime_type, size_bytes, material_type, processing_status, created_at",
+      )
+      .eq("course_id", courseId)
+      .eq("material_type", "course_calendar")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const latest = data?.[0] ?? null;
+    setCourseCalendar(
+      latest
+        ? {
+            ...latest,
+            size_bytes:
+              latest.size_bytes === null ? null : Number(latest.size_bytes),
+          }
+        : null,
+    );
   }
 
   async function loadCourse() {
@@ -1071,6 +1101,10 @@ export default function CoursePage() {
     syllabusInputRef.current?.click();
   }
 
+  function chooseCourseCalendar() {
+    calendarInputRef.current?.click();
+  }
+
   async function handleSyllabusSelected(
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
@@ -1089,6 +1123,8 @@ export default function CoursePage() {
       setSyllabusError("Please choose a PDF syllabus.");
       return;
     }
+
+    let uploadedPath = "";
 
     try {
       setUploadingSyllabus(true);
@@ -1111,6 +1147,7 @@ export default function CoursePage() {
       );
 
       const storagePath = `${user.id}/${courseId}/syllabus/${crypto.randomUUID()}-${safeFileName}`;
+      uploadedPath = storagePath;
 
       const { error: uploadError } = await supabase.storage
         .from("course-files")
@@ -1127,8 +1164,9 @@ export default function CoursePage() {
         await supabase
           .from("course_files")
           .insert({
+            user_id: user.id,
             course_id: courseId,
-            file_name: displayFileName,
+            file_name: file.name,
             storage_path: storagePath,
             mime_type: file.type || "application/pdf",
             size_bytes: file.size,
@@ -1147,6 +1185,8 @@ export default function CoursePage() {
 
         throw databaseError;
       }
+
+      uploadedPath = "";
 
       const oldSyllabus = syllabus;
 
@@ -1191,6 +1231,14 @@ export default function CoursePage() {
         }
       }
     } catch (error) {
+      if (uploadedPath) {
+        const { error: cleanupError } = await supabase.storage
+          .from("course-files")
+          .remove([uploadedPath]);
+        if (cleanupError) {
+          console.warn("Could not clean up failed syllabus upload:", cleanupError);
+        }
+      }
       console.error("Error uploading syllabus:", error);
       setSyllabusError(
         error instanceof Error
@@ -1199,6 +1247,115 @@ export default function CoursePage() {
       );
     } finally {
       setUploadingSyllabus(false);
+    }
+  }
+
+  async function handleCourseCalendarSelected(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const supported =
+      file.type === "application/pdf" ||
+      file.type === "text/calendar" ||
+      /\.(pdf|ics)$/i.test(file.name);
+
+    if (!supported) {
+      setCalendarUploadError("Choose a PDF or .ics course calendar.");
+      return;
+    }
+
+    if (file.size > 30 * 1024 * 1024) {
+      setCalendarUploadError("Keep the course calendar under 30 MB.");
+      return;
+    }
+
+    let uploadedPath = "";
+    try {
+      setUploadingCalendar(true);
+      setCalendarUploadError("");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw userError ?? new Error("You must be signed in.");
+
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      uploadedPath = `${user.id}/${courseId}/course-calendar/${crypto.randomUUID()}-${safeFileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("course-files")
+        .upload(uploadedPath, file, {
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data: savedFile, error: databaseError } = await supabase
+        .from("course_files")
+        .insert({
+          user_id: user.id,
+          course_id: courseId,
+          file_name: file.name,
+          storage_path: uploadedPath,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+          material_type: "course_calendar",
+          processing_status: "ready",
+        })
+        .select(
+          "id, file_name, storage_path, mime_type, size_bytes, material_type, processing_status, created_at",
+        )
+        .single();
+      if (databaseError) throw databaseError;
+
+      const previous = courseCalendar;
+      uploadedPath = "";
+      setCourseCalendar({
+        ...savedFile,
+        size_bytes:
+          savedFile.size_bytes === null ? null : Number(savedFile.size_bytes),
+      });
+
+      if (previous) {
+        const { error: oldDatabaseError } = await supabase
+          .from("course_files")
+          .delete()
+          .eq("id", previous.id)
+          .eq("course_id", courseId);
+        if (!oldDatabaseError) {
+          const { error: oldStorageError } = await supabase.storage
+            .from("course-files")
+            .remove([previous.storage_path]);
+          if (oldStorageError) console.warn("Could not remove old course calendar file:", oldStorageError);
+        }
+      }
+    } catch (error) {
+      if (uploadedPath) {
+        await supabase.storage.from("course-files").remove([uploadedPath]);
+      }
+      console.error("Error uploading course calendar:", error);
+      setCalendarUploadError(
+        error instanceof Error ? error.message : "Could not upload the course calendar.",
+      );
+    } finally {
+      setUploadingCalendar(false);
+    }
+  }
+
+  async function openCourseCalendar() {
+    if (!courseCalendar) return;
+    try {
+      setCalendarUploadError("");
+      const { data, error } = await supabase.storage
+        .from("course-files")
+        .createSignedUrl(courseCalendar.storage_path, 60);
+      if (error) throw error;
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error opening course calendar:", error);
+      setCalendarUploadError("Could not open the course calendar.");
     }
   }
 
@@ -1254,8 +1411,15 @@ export default function CoursePage() {
       const formData = new FormData();
       formData.append("file", file);
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be signed in.");
+
+      formData.append("courseId", courseId);
       const response = await fetch("/api/analyze-syllabus", {
         method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: formData,
       });
 
@@ -1473,6 +1637,13 @@ export default function CoursePage() {
         type="file"
         accept="application/pdf,.pdf"
         onChange={handleSyllabusSelected}
+        className="hidden"
+      />
+      <input
+        ref={calendarInputRef}
+        type="file"
+        accept="application/pdf,text/calendar,.pdf,.ics"
+        onChange={handleCourseCalendarSelected}
         className="hidden"
       />
 
@@ -1806,8 +1977,11 @@ export default function CoursePage() {
               <OverviewTab
                 course={course}
                 syllabus={syllabus}
+                courseCalendar={courseCalendar}
                 uploadingSyllabus={uploadingSyllabus}
+                uploadingCalendar={uploadingCalendar}
                 syllabusError={syllabusError}
+                calendarUploadError={calendarUploadError}
                 analyzingSyllabus={analyzingSyllabus}
                 syllabusAnalysis={syllabusAnalysis}
                 syllabusAnalyzed={syllabusAnalyzed}
@@ -1820,6 +1994,8 @@ export default function CoursePage() {
                 onAnalyzeSyllabus={analyzeSyllabus}
                 onOpenSyllabus={openSyllabus}
                 onDeleteSyllabus={deleteSyllabus}
+                onChooseCalendar={chooseCourseCalendar}
+                onOpenCalendar={openCourseCalendar}
               />
             )}
 
@@ -1908,8 +2084,11 @@ export default function CoursePage() {
 function OverviewTab({
   course,
   syllabus,
+  courseCalendar,
   uploadingSyllabus,
+  uploadingCalendar,
   syllabusError,
+  calendarUploadError,
   analyzingSyllabus,
   syllabusAnalysis,
   syllabusAnalyzed,
@@ -1922,11 +2101,16 @@ function OverviewTab({
   onAnalyzeSyllabus,
   onOpenSyllabus,
   onDeleteSyllabus,
+  onChooseCalendar,
+  onOpenCalendar,
 }: {
   course: Course;
   syllabus: CourseFile | null;
+  courseCalendar: CourseFile | null;
   uploadingSyllabus: boolean;
+  uploadingCalendar: boolean;
   syllabusError: string;
+  calendarUploadError: string;
   analyzingSyllabus: boolean;
   syllabusAnalysis: SyllabusAnalysis | null;
   syllabusAnalyzed: boolean;
@@ -1939,6 +2123,8 @@ function OverviewTab({
   onAnalyzeSyllabus: () => void;
   onOpenSyllabus: () => void;
   onDeleteSyllabus: () => void;
+  onChooseCalendar: () => void;
+  onOpenCalendar: () => void;
 }) {
   return (
     <section>
@@ -1978,9 +2164,18 @@ function OverviewTab({
             <SetupRow
               icon={CalendarDays}
               title="Course calendar"
-              description="Lectures, units, exams, assignments, and weekly topics."
-              action="Upload calendar"
+              description={
+                courseCalendar
+                  ? `${courseCalendar.file_name} · ${formatFileSize(courseCalendar.size_bytes)}`
+                  : "Keep the professor's PDF or .ics calendar with this course."
+              }
+              action={courseCalendar ? "Replace" : "Upload calendar"}
               color={course.color}
+              busy={uploadingCalendar}
+              status={courseCalendar ? "Uploaded" : "Not uploaded"}
+              error={calendarUploadError}
+              onAction={onChooseCalendar}
+              onView={courseCalendar ? onOpenCalendar : undefined}
               last
             />
           </div>
@@ -2963,6 +3158,7 @@ function MaterialNotesDocument({
   }, []);
 
   if (!content) return null;
+  const printableContent = content;
 
   const topicNote = currentTopicId
     ? analysis.topic_notes.find(
@@ -3027,7 +3223,7 @@ function MaterialNotesDocument({
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>${escapeHtmlForPrint(content.title)} - Study Notes</title>
+    <title>${escapeHtmlForPrint(printableContent.title)} - Study Notes</title>
     ${documentStyles}
     <style>
       @page { size: auto; margin: 0.55in; }
@@ -5459,7 +5655,7 @@ function SyllabusSetupRow({
 }) {
   return (
     <div className="border-b border-white/[0.055]">
-      <div className="group grid gap-5 p-5 transition hover:bg-white/[0.02] sm:grid-cols-[44px_1fr_auto] sm:items-center">
+      <div className="group grid gap-4 p-5 transition hover:bg-white/[0.02] sm:grid-cols-[44px_minmax(0,1fr)] sm:items-center lg:grid-cols-[44px_minmax(0,1fr)_auto]">
         <div
           className="flex h-10 w-10 items-center justify-center rounded-[13px]"
           style={{ backgroundColor: `${color}10` }}
@@ -5521,7 +5717,7 @@ function SyllabusSetupRow({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:col-start-2 lg:col-start-auto">
           {syllabus && !uploading && !analyzed && (
             <button
               type="button"
@@ -5991,6 +6187,11 @@ function SetupRow({
   description,
   action,
   color,
+  busy = false,
+  status,
+  error,
+  onAction,
+  onView,
   last = false,
 }: {
   icon: React.ElementType;
@@ -5998,35 +6199,60 @@ function SetupRow({
   description: string;
   action: string;
   color: string;
+  busy?: boolean;
+  status?: string;
+  error?: string;
+  onAction?: () => void;
+  onView?: () => void;
   last?: boolean;
 }) {
   return (
-    <div
-      className={`group grid gap-5 p-5 transition hover:bg-white/[0.02] sm:grid-cols-[44px_1fr_auto] sm:items-center ${
-        last ? "" : "border-b border-white/[0.055]"
-      }`}
-    >
-      <div
-        className="flex h-10 w-10 items-center justify-center rounded-[13px]"
-        style={{ backgroundColor: `${color}10` }}
-      >
-        <Icon size={17} style={{ color }} />
+    <div className={last ? "" : "border-b border-white/[0.055]"}>
+      <div className="group grid gap-4 p-5 transition hover:bg-white/[0.02] sm:grid-cols-[44px_minmax(0,1fr)] sm:items-center lg:grid-cols-[44px_minmax(0,1fr)_auto]">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-[13px]"
+          style={{ backgroundColor: `${color}10` }}
+        >
+          {busy ? <Loader2 size={17} className="animate-spin" style={{ color }} /> : <Icon size={17} style={{ color }} />}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[13px] font-medium text-white/78">{title}</p>
+            {status && (
+              <span className="rounded-full px-2 py-0.5 text-[9px] font-medium" style={{ backgroundColor: `${color}12`, color }}>
+                {status}
+              </span>
+            )}
+          </div>
+
+          <p className="mt-1 truncate text-[11px] leading-5 text-white/27">
+            {busy ? "Uploading your course calendar securely…" : description}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:col-start-2 lg:col-start-auto">
+          {onView && (
+            <button type="button" onClick={onView} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-medium text-white/34 transition hover:bg-white/[0.04] hover:text-white/70">
+              <ExternalLink size={12} /> View
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onAction}
+            disabled={busy || !onAction}
+            className="flex w-fit items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-[10px] font-medium text-white/48 transition hover:bg-white/[0.045] hover:text-white/78 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Uploading…" : action}
+            {!busy && <ChevronRight size={12} />}
+          </button>
+        </div>
       </div>
-
-      <div>
-        <p className="text-[13px] font-medium text-white/78">
-          {title}
-        </p>
-
-        <p className="mt-1 text-[11px] leading-5 text-white/27">
-          {description}
-        </p>
-      </div>
-
-      <button className="flex w-fit items-center gap-1.5 text-[11px] font-medium text-white/38 transition group-hover:text-white/70">
-        {action}
-        <ChevronRight size={12} />
-      </button>
+      {error && (
+        <div className="border-t border-red-500/10 bg-red-500/[0.035] px-5 py-3 sm:pl-[84px]">
+          <p className="text-[10px] text-red-300/75">{error}</p>
+        </div>
+      )}
     </div>
   );
 }

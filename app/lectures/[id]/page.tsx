@@ -1740,11 +1740,7 @@ export default function LectureSummaryPage() {
       );
 
       const onStage = (
-        _stage:
-          Exclude<
-            LecturePipelineStage,
-            "uploading"
-          >,
+        _stage: LecturePipelineStage,
         message: string,
       ) => {
         setRebuildMessage(

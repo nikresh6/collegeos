@@ -10,6 +10,11 @@ type Draft = { courseId: string; title: string; daysOfWeek: number[]; startTime:
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function localDateKey(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 export function CalendarScheduleCoach({ courses, accent, onApplied }: { courses: Course[]; accent: string; onApplied: () => Promise<void> | void }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -37,7 +42,7 @@ export function CalendarScheduleCoach({ courses, accent, onApplied }: { courses:
       const response = await fetch("/api/calendar/parse-schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-        body: JSON.stringify({ message: message.trim(), semesterStart: today.toISOString().slice(0, 10), semesterEnd: end.toISOString().slice(0, 10) }),
+        body: JSON.stringify({ message: message.trim(), semesterStart: localDateKey(today), semesterEnd: localDateKey(end) }),
       });
       const payload = await response.json() as { ok?: boolean; reply?: string; drafts?: Draft[]; error?: string };
       if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not understand that schedule.");
@@ -56,16 +61,19 @@ export function CalendarScheduleCoach({ courses, accent, onApplied }: { courses:
     try {
       setSaving(true);
       const accessToken = await token();
-      for (const draft of drafts) {
-        const course = courseMap.get(draft.courseId);
-        const response = await fetch("/api/calendar/class", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ ...draft, color: course?.color ?? accent, weekPattern: "every" }),
-        });
-        const payload = await response.json() as { ok?: boolean; error?: string };
-        if (!response.ok || !payload.ok) throw new Error(payload.error || `Could not add ${draft.title}.`);
-      }
+      const response = await fetch("/api/calendar/class", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          drafts: drafts.map((draft) => ({
+            ...draft,
+            color: courseMap.get(draft.courseId)?.color ?? accent,
+            weekPattern: "every",
+          })),
+        }),
+      });
+      const payload = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not add this schedule.");
       await onApplied();
       setDone(true);
       setReply(`${drafts.length} color-coded class ${drafts.length === 1 ? "block is" : "blocks are"} now on your calendar.`);
@@ -89,7 +97,7 @@ export function CalendarScheduleCoach({ courses, accent, onApplied }: { courses:
       <motion.div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-[30px] border border-white/[.09] bg-[#101012] p-5 shadow-2xl sm:rounded-[30px] sm:p-7" initial={{ opacity: 0, y: 35 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 35 }}>
         <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-[15px]" style={{ color: accent, backgroundColor: `${accent}14` }}><Bot size={18} /></span><div><p className="text-[9px] font-semibold uppercase tracking-[.14em] text-white/27">Schedule coach</p><h2 className="mt-1 text-[27px] font-medium tracking-[-.045em]">Describe your week.</h2></div></div><button onClick={() => setOpen(false)} className="h-9 w-9 rounded-full border border-white/[.07] text-white/35"><X size={14} className="mx-auto" /></button></div>
         <p className="mt-5 max-w-lg text-[11px] leading-5 text-white/31">Give me several classes at once. Include days, start and end times, and locations if you know them. I’ll match them to your courses and let you review everything before saving.</p>
-        <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="CHEM 102 is Monday, Wednesday and Friday 9–9:50 in Noyes 100. Discussion is Thursday 2–2:50 in Chem Annex…" className="mt-5 min-h-32 w-full rounded-[20px] border border-white/[.08] bg-black/20 p-4 text-[13px] leading-6 text-white/72 outline-none placeholder:text-white/17 focus:border-white/[.15]" />
+        <textarea value={message} maxLength={8000} onChange={(event) => setMessage(event.target.value)} placeholder="CHEM 102 is Monday, Wednesday and Friday 9–9:50 in Noyes 100. Discussion is Thursday 2–2:50 in Chem Annex…" className="mt-5 min-h-32 w-full rounded-[20px] border border-white/[.08] bg-black/20 p-4 text-[13px] leading-6 text-white/72 outline-none placeholder:text-white/17 focus:border-white/[.15]" />
         <button disabled={busy || !message.trim()} onClick={() => void parse()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[11px] font-semibold text-black disabled:opacity-35" style={{ backgroundColor: accent }}>{busy ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}{busy ? "Reading your schedule…" : "Build schedule preview"}</button>
         {(reply || drafts.length > 0) && <div className="mt-6 border-t border-white/[.06] pt-5">
           {reply && <div className="flex gap-2 text-[11px] leading-5 text-white/42">{done ? <Check size={13} style={{ color: accent }} className="mt-1 shrink-0" /> : <Bot size={13} style={{ color: accent }} className="mt-1 shrink-0" />}<p>{reply}</p></div>}

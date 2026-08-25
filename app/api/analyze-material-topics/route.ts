@@ -92,29 +92,27 @@ function parseTopics(value: FormDataEntryValue | null): CandidateTopic[] {
 
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
-      .map((item) => {
+    return parsed.flatMap((item): CandidateTopic[] => {
         if (
           typeof item !== "object" ||
           item === null ||
           typeof (item as Record<string, unknown>).id !== "string" ||
           typeof (item as Record<string, unknown>).name !== "string"
         ) {
-          return null;
+          return [];
         }
 
         const record = item as Record<string, unknown>;
 
-        return {
+        return [{
           id: String(record.id),
           name: String(record.name),
           parentTopicId:
             typeof record.parentTopicId === "string"
               ? record.parentTopicId
               : null,
-        };
-      })
-      .filter((item): item is CandidateTopic => Boolean(item));
+        }];
+      });
   } catch {
     return [];
   }

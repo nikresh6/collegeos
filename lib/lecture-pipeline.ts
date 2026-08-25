@@ -831,11 +831,15 @@ export async function createLectureMaterial({
       throw lectureError;
     }
 
-    lectureId =
-      lecture.id;
+    if (!lecture?.id) {
+      throw new Error("The lecture record was not created.");
+    }
+
+    const createdLectureId = lecture.id;
+    lectureId = createdLectureId;
 
     onLectureCreated?.(
-      lectureId,
+      createdLectureId,
     );
 
     if (noteId) {
@@ -846,7 +850,7 @@ export async function createLectureMaterial({
         .from("notes")
         .update({
           lecture_id:
-            lectureId,
+            createdLectureId,
           course_id:
             courseId,
         })
@@ -867,14 +871,14 @@ export async function createLectureMaterial({
     );
 
     await transcribeUntilReady({
-      lectureId,
+      lectureId: createdLectureId,
       onStage,
       signal:
         analysisSignal,
     });
 
     await queueLectureAnalysis({
-      lectureId,
+      lectureId: createdLectureId,
       depthPercent:
         depth,
       onStage,
@@ -883,7 +887,7 @@ export async function createLectureMaterial({
     });
 
     return {
-      lectureId,
+      lectureId: createdLectureId,
       courseFileId,
       analysisQueued:
         true as const,
@@ -974,10 +978,7 @@ export async function reprocessLectureMaterial({
   lectureId: string;
   depthPercent: number;
   onStage?: (
-    stage: Exclude<
-      LecturePipelineStage,
-      "uploading"
-    >,
+    stage: LecturePipelineStage,
     message: string,
   ) => void;
   analysisSignal?:

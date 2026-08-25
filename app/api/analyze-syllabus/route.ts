@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateStructured } from "../../../lib/ai/groq";
 import { extractPdfText } from "../../../lib/pdf";
+import { userContext } from "../../../lib/server-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -289,8 +290,39 @@ function isGroqAuthError(message: string) {
 
 export async function POST(request: Request) {
   try {
+    const context = await userContext(request);
+    if (!context) {
+      return NextResponse.json(
+        { ok: false, error: "You are not signed in." },
+        { status: 401 },
+      );
+    }
+
     const formData = await request.formData();
     const candidate = formData.get("file");
+    const courseId = formData.get("courseId");
+
+    if (typeof courseId !== "string" || !courseId) {
+      return NextResponse.json(
+        { ok: false, error: "A course is required." },
+        { status: 400 },
+      );
+    }
+
+    const { data: course, error: courseError } = await context.supabase
+      .from("courses")
+      .select("id")
+      .eq("id", courseId)
+      .eq("user_id", context.user.id)
+      .maybeSingle();
+
+    if (courseError) throw courseError;
+    if (!course) {
+      return NextResponse.json(
+        { ok: false, error: "Course not found." },
+        { status: 404 },
+      );
+    }
 
     if (!(candidate instanceof File)) {
       return NextResponse.json(
