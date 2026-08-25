@@ -1,239 +1,18 @@
 import { NextResponse } from "next/server";
-import { generateStructured } from "../../../lib/ai/groq";
+import { groq } from "../../../lib/ai/groq";
 import { extractPdfText } from "../../../lib/pdf";
 import { userContext } from "../../../lib/server-auth";
+import {
+  buildSyllabusChunks,
+  isSyllabusPipelineState,
+  mergeSyllabusChunkAnalyses,
+  parseTaggedSyllabusChunk,
+  type SyllabusPipelineState,
+} from "../../../lib/syllabus-analysis-pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 240;
-
-type SyllabusAnalysis = {
-  courseInfo: {
-    courseCode: string;
-    courseName: string;
-    professor: string;
-    term: string;
-    credits: number;
-  };
-  gradingCategories: Array<{
-    name: string;
-    weightPercent: number;
-    notes: string;
-  }>;
-  gradingScale: Array<{
-    letterGrade: string;
-    minPercent: number;
-    maxPercent: number;
-    notes: string;
-  }>;
-  assessments: Array<{
-    name: string;
-    type: string;
-    date: string;
-    notes: string;
-  }>;
-  units: Array<{
-    name: string;
-    description: string;
-    basisType: "explicit_unit" | "assessment_block";
-    basis: string;
-    assessmentName: string;
-    coverage: string;
-    topics: Array<{
-      name: string;
-      date: string;
-      reading: string;
-      assignment: string;
-    }>;
-  }>;
-  unassignedTopics: Array<{
-    name: string;
-    date: string;
-    reading: string;
-    assignment: string;
-  }>;
-  importantDates: Array<{
-    name: string;
-    date: string;
-    type: string;
-  }>;
-  policies: Array<{
-    category: string;
-    summary: string;
-  }>;
-  scheduleNotes: string[];
-  warnings: string[];
-  overallConfidence: number;
-};
-
-const topicSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    name: { type: "string" },
-    date: { type: "string" },
-    reading: { type: "string" },
-    assignment: { type: "string" },
-  },
-  required: ["name", "date", "reading", "assignment"],
-};
-
-const syllabusSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    courseInfo: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        courseCode: { type: "string" },
-        courseName: { type: "string" },
-        professor: { type: "string" },
-        term: { type: "string" },
-        credits: { type: "number" },
-      },
-      required: [
-        "courseCode",
-        "courseName",
-        "professor",
-        "term",
-        "credits",
-      ],
-    },
-    gradingCategories: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          name: { type: "string" },
-          weightPercent: { type: "number" },
-          notes: { type: "string" },
-        },
-        required: ["name", "weightPercent", "notes"],
-      },
-    },
-    gradingScale: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          letterGrade: { type: "string" },
-          minPercent: { type: "number" },
-          maxPercent: { type: "number" },
-          notes: { type: "string" },
-        },
-        required: [
-          "letterGrade",
-          "minPercent",
-          "maxPercent",
-          "notes",
-        ],
-      },
-    },
-    assessments: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          name: { type: "string" },
-          type: { type: "string" },
-          date: { type: "string" },
-          notes: { type: "string" },
-        },
-        required: ["name", "type", "date", "notes"],
-      },
-    },
-    units: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          name: { type: "string" },
-          description: { type: "string" },
-          basisType: {
-            type: "string",
-            enum: ["explicit_unit", "assessment_block"],
-          },
-          basis: { type: "string" },
-          assessmentName: { type: "string" },
-          coverage: { type: "string" },
-          topics: {
-            type: "array",
-            items: topicSchema,
-          },
-        },
-        required: [
-          "name",
-          "description",
-          "basisType",
-          "basis",
-          "assessmentName",
-          "coverage",
-          "topics",
-        ],
-      },
-    },
-    unassignedTopics: {
-      type: "array",
-      items: topicSchema,
-    },
-    importantDates: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          name: { type: "string" },
-          date: { type: "string" },
-          type: { type: "string" },
-        },
-        required: ["name", "date", "type"],
-      },
-    },
-    policies: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          category: { type: "string" },
-          summary: { type: "string" },
-        },
-        required: ["category", "summary"],
-      },
-    },
-    scheduleNotes: {
-      type: "array",
-      items: { type: "string" },
-    },
-    warnings: {
-      type: "array",
-      items: { type: "string" },
-    },
-    overallConfidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 100,
-    },
-  },
-  required: [
-    "courseInfo",
-    "gradingCategories",
-    "gradingScale",
-    "assessments",
-    "units",
-    "unassignedTopics",
-    "importantDates",
-    "policies",
-    "scheduleNotes",
-    "warnings",
-    "overallConfidence",
-  ],
-};
 
 const systemPrompt = `You are the syllabus extraction engine for a college academic assistant.
 
@@ -260,7 +39,7 @@ STRICT RULES:
 18. Convert clearly stated percentage thresholds or ranges to minPercent and maxPercent. Examples: "A: 93-100" -> 93 and 100; "A: 93% and above" -> 93 and 100; "F: below 60%" -> 0 and 59.999 when the boundary is explicit.
 19. If the syllabus states a letter grade but the numeric boundary is not clear, set minPercent and maxPercent to 0 and explain the wording in notes.
 20. If no explicit percentage-to-letter-grade scale is present, return gradingScale as an empty array.
-21. Your response must conform exactly to the supplied JSON schema.
+21. Your response must conform exactly to the supplied tagged-line format.
 22. Preserve every explicit scheduled topic even when there are many topics.
 23. Be concise in notes, descriptions, policies, basis, and coverage fields. Do not repeat the same information in multiple prose fields.
 24. For assessment-based units, description may be an empty string when the unit name, assessmentName, basis, and coverage already make the grouping clear.
@@ -268,6 +47,115 @@ STRICT RULES:
 26. importantDates must include every explicit assignment deadline, exam/quiz date, project milestone, holiday, break, cancellation, and other date that belongs on a student's calendar. If an assignment's due date differs from its lecture/topic date, preserve the due date in importantDates rather than attaching it to the lecture date.
 27. assessments should include every explicitly named graded assessment. gradingCategories must preserve every explicit category and weight, and gradingScale must preserve every explicit cutoff.
 28. Do not spend output space explaining your reasoning. Return only the structured extraction.`;
+
+const SYLLABUS_MODEL_POOL = [
+  "openai/gpt-oss-20b",
+  "qwen/qwen3.6-27b",
+  "openai/gpt-oss-120b",
+] as const;
+
+const taggedOutputPrompt = `OUTPUT FORMAT:
+Return ONLY lines in this tagged format. Use literal TAB characters between fields.
+
+COURSE<TAB>course code<TAB>course name<TAB>professor<TAB>term<TAB>credits
+GRADE_CATEGORY<TAB>name<TAB>weight percent number<TAB>notes
+GRADE_SCALE<TAB>letter grade<TAB>minimum percent<TAB>maximum percent<TAB>notes
+ASSESSMENT<TAB>name<TAB>type<TAB>date exactly as written<TAB>notes
+UNIT<TAB>name<TAB>description<TAB>explicit_unit or assessment_block<TAB>basis<TAB>assessment name<TAB>coverage
+TOPIC<TAB>unit name or UNASSIGNED<TAB>topic name<TAB>date<TAB>reading<TAB>assignment
+DATE<TAB>name<TAB>date exactly as written<TAB>type
+POLICY<TAB>category<TAB>summary
+SCHEDULE_NOTE<TAB>note
+WARNING<TAB>warning
+CONFIDENCE<TAB>0-100
+
+Rules for output:
+- Omit unsupported lines rather than inventing values.
+- COURSE and CONFIDENCE may appear once. Every other tag may repeat.
+- Use UNASSIGNED only when a topic is explicit but no unit is supported.
+- Do not output JSON, markdown, headings, commentary, or code fences.
+- Do not place TAB characters inside a field.`;
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error ?? "Unknown error");
+}
+
+function isTransientGroqError(error: unknown) {
+  const candidate = error as { status?: number; code?: string; message?: string };
+  const status = Number(candidate?.status);
+  const message = candidate?.message?.toLowerCase() ?? "";
+  const code = candidate?.code?.toLowerCase() ?? "";
+  return (
+    status === 408 ||
+    status === 422 ||
+    status === 424 ||
+    status === 429 ||
+    status >= 500 ||
+    code.includes("failed_generation") ||
+    message.includes("rate limit") ||
+    message.includes("temporarily unavailable") ||
+    message.includes("capacity") ||
+    message.includes("timeout")
+  );
+}
+
+function retryAfterMilliseconds(error: unknown) {
+  const candidate = error as {
+    headers?: Headers | Record<string, string | undefined>;
+  };
+  const headers = candidate?.headers;
+  let raw: string | null | undefined;
+  if (headers && typeof (headers as Headers).get === "function") {
+    raw = (headers as Headers).get("retry-after");
+  } else if (headers) {
+    raw = (headers as Record<string, string | undefined>)["retry-after"];
+  }
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(90_000, Math.ceil(seconds * 1000))
+    : 8_000;
+}
+
+async function analyzeSyllabusChunk({
+  text,
+  index,
+  total,
+  model,
+}: {
+  text: string;
+  index: number;
+  total: number;
+  model: string;
+}) {
+  const reasoningOptions = model.startsWith("qwen/")
+    ? { reasoning_format: "hidden" as const, reasoning_effort: "none" as const }
+    : { reasoning_format: "hidden" as const, reasoning_effort: "low" as const };
+
+  const completion = await groq.chat.completions.create({
+    model,
+    messages: [
+      {
+        role: "system",
+        content: `${systemPrompt}\n\n${taggedOutputPrompt}`,
+      },
+      {
+        role: "user",
+        content: `CHUNK ${index + 1} OF ${total}:\n${text}`,
+      },
+    ],
+    ...reasoningOptions,
+    temperature: model.startsWith("qwen/") ? 0.4 : 0.05,
+    max_completion_tokens: 1100,
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) throw new Error("Groq returned an empty syllabus chunk response.");
+
+  if (!/^(?:COURSE|GRADE_CATEGORY|GRADE_SCALE|ASSESSMENT|UNIT|TOPIC|DATE|POLICY|SCHEDULE_NOTE|WARNING|CONFIDENCE)\t/m.test(content)) {
+    throw new Error("The syllabus chunk response did not contain usable tagged data.");
+  }
+  return parseTaggedSyllabusChunk(content);
+}
 
 function isGroqRateLimitError(message: string) {
   const lower = message.toLowerCase();
@@ -347,40 +235,74 @@ export async function POST(request: Request) {
       );
     }
 
+    let pipeline: SyllabusPipelineState | null = null;
+    let analysisId = "";
+
     if (courseFileId) {
-      const { data: storedFile, error: storedFileError } =
-        await context.supabase
-          .from("course_files")
-          .select("id, file_name, storage_path, mime_type, size_bytes")
-          .eq("id", courseFileId)
-          .eq("course_id", courseId)
-          .eq("user_id", context.user.id)
-          .eq("material_type", "syllabus")
-          .maybeSingle();
+      const { data: existingRows, error: existingError } = await context.supabase
+        .from("syllabus_analyses")
+        .select("id, raw_analysis")
+        .eq("course_id", courseId)
+        .eq("course_file_id", courseFileId)
+        .eq("user_id", context.user.id)
+        .eq("status", "draft")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (existingError) throw existingError;
 
-      if (storedFileError) throw storedFileError;
-      if (!storedFile) {
-        return NextResponse.json(
-          { ok: false, requestId, error: "Syllabus file not found." },
-          { status: 404 },
-        );
+      const existing = existingRows?.find((row) =>
+        isSyllabusPipelineState(row.raw_analysis),
+      );
+      if (existing && isSyllabusPipelineState(existing.raw_analysis)) {
+        analysisId = existing.id;
+        pipeline = existing.raw_analysis;
       }
 
-      const { data: storedBlob, error: downloadError } =
-        await context.supabase.storage
-          .from("course-files")
-          .download(storedFile.storage_path);
-
-      if (downloadError || !storedBlob) {
-        throw downloadError ?? new Error("Could not download the stored syllabus.");
+      if (pipeline?.status === "complete" && pipeline.result) {
+        return NextResponse.json({
+          ok: true,
+          status: "complete",
+          requestId,
+          analysisId,
+          provider: "groq",
+          analysis: pipeline.result,
+        });
       }
 
-      candidate = new File([storedBlob], storedFile.file_name, {
-        type: storedFile.mime_type || "application/pdf",
-      });
+      if (!pipeline) {
+        const { data: storedFile, error: storedFileError } =
+          await context.supabase
+            .from("course_files")
+            .select("id, file_name, storage_path, mime_type, size_bytes")
+            .eq("id", courseFileId)
+            .eq("course_id", courseId)
+            .eq("user_id", context.user.id)
+            .eq("material_type", "syllabus")
+            .maybeSingle();
+
+        if (storedFileError) throw storedFileError;
+        if (!storedFile) {
+          return NextResponse.json(
+            { ok: false, requestId, error: "Syllabus file not found." },
+            { status: 404 },
+          );
+        }
+
+        const { data: storedBlob, error: downloadError } =
+          await context.supabase.storage
+            .from("course-files")
+            .download(storedFile.storage_path);
+        if (downloadError || !storedBlob) {
+          throw downloadError ?? new Error("Could not download the stored syllabus.");
+        }
+
+        candidate = new File([storedBlob], storedFile.file_name, {
+          type: storedFile.mime_type || "application/pdf",
+        });
+      }
     }
 
-    if (!candidate) {
+    if (!candidate && !pipeline) {
       return NextResponse.json(
         {
           ok: false,
@@ -391,22 +313,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const isPdf =
-      candidate.type === "application/pdf" ||
-      candidate.name.toLowerCase().endsWith(".pdf");
-
-    if (!isPdf) {
+    if (
+      candidate &&
+      candidate.type !== "application/pdf" &&
+      !candidate.name.toLowerCase().endsWith(".pdf")
+    ) {
       return NextResponse.json(
-        {
-          ok: false,
-          requestId,
-          error: "The syllabus must be a PDF.",
-        },
+        { ok: false, requestId, error: "The syllabus must be a PDF." },
         { status: 400 },
       );
     }
 
-    if (candidate.size > 30 * 1024 * 1024) {
+    if (candidate && candidate.size > 30 * 1024 * 1024) {
       return NextResponse.json(
         {
           ok: false,
@@ -417,55 +335,176 @@ export async function POST(request: Request) {
       );
     }
 
-    const { text, pageCount } = await extractPdfText(candidate);
+    if (!pipeline && candidate) {
+      const { text, pageCount, pageTexts } = await extractPdfText(candidate);
+      if (text.replace(/\s/g, "").length < 150) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "PDF_TEXT_NOT_EXTRACTABLE",
+            retryable: false,
+            requestId,
+            error:
+              "This PDF contains too little extractable text. It may be scanned or image-based. OCR fallback has not been enabled yet.",
+          },
+          { status: 422 },
+        );
+      }
 
-    if (text.replace(/\s/g, "").length < 150) {
-      return NextResponse.json(
-        {
-          ok: false,
-          code: "PDF_TEXT_NOT_EXTRACTABLE",
-          retryable: false,
-          requestId,
-          error:
-            "This PDF contains too little extractable text. It may be scanned or image-based. OCR fallback has not been enabled yet.",
-        },
-        { status: 422 },
+      const chunks = buildSyllabusChunks(pageTexts);
+      if (!chunks.length) {
+        throw new Error("The syllabus did not contain any readable page groups.");
+      }
+
+      pipeline = {
+        pipelineVersion: 1,
+        status: "processing",
+        fileName: candidate.name,
+        pageCount,
+        chunks: chunks.map((chunkText, index) => ({
+          index,
+          text: chunkText,
+          status: "pending",
+          memory: null,
+          attempts: 0,
+          lastError: null,
+        })),
+        result: null,
+      };
+
+      console.log("Syllabus analysis pipeline created:", {
+        fileName: candidate.name,
+        pageCount,
+        extractedCharacters: text.length,
+        chunks: chunks.length,
+      });
+
+      let supersedeQuery = context.supabase
+        .from("syllabus_analyses")
+        .update({ status: "superseded" })
+        .eq("course_id", courseId)
+        .eq("user_id", context.user.id)
+        .eq("status", "draft");
+      supersedeQuery = courseFileId
+        ? supersedeQuery.eq("course_file_id", courseFileId)
+        : supersedeQuery.is("course_file_id", null);
+      const { error: supersedeError } = await supersedeQuery;
+      if (supersedeError) throw supersedeError;
+
+      const { data: inserted, error: insertError } = await context.supabase
+        .from("syllabus_analyses")
+        .insert({
+          user_id: context.user.id,
+          course_id: courseId,
+          course_file_id: courseFileId || null,
+          raw_analysis: pipeline,
+          edited_analysis: null,
+          status: "draft",
+          confidence: 0,
+        })
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+      analysisId = inserted.id;
+    }
+
+    if (!pipeline || !analysisId) {
+      throw new Error("Could not initialize the syllabus analysis pipeline.");
+    }
+
+    const pending = pipeline.chunks.filter((chunk) => chunk.status !== "ready");
+    const batch = pending.slice(0, SYLLABUS_MODEL_POOL.length);
+    let retryAfterMs = 1_500;
+
+    if (batch.length) {
+      const results = await Promise.allSettled(
+        batch.map((chunk, lane) => {
+          const model =
+            SYLLABUS_MODEL_POOL[
+              (lane + chunk.attempts) % SYLLABUS_MODEL_POOL.length
+            ];
+          return analyzeSyllabusChunk({
+            text: chunk.text,
+            index: chunk.index,
+            total: pipeline!.chunks.length,
+            model,
+          });
+        }),
+      );
+
+      for (let index = 0; index < results.length; index += 1) {
+        const chunk = batch[index];
+        const result = results[index];
+        if (result.status === "fulfilled") {
+          chunk.status = "ready";
+          chunk.memory = result.value;
+          chunk.lastError = null;
+          continue;
+        }
+
+        chunk.attempts += 1;
+        chunk.lastError = errorMessage(result.reason);
+        if (!isTransientGroqError(result.reason) && chunk.attempts >= 3) {
+          throw result.reason;
+        }
+        retryAfterMs = Math.max(
+          retryAfterMs,
+          retryAfterMilliseconds(result.reason),
+        );
+      }
+    }
+
+    const completedChunks = pipeline.chunks.filter(
+      (chunk) => chunk.status === "ready",
+    ).length;
+    const complete = completedChunks === pipeline.chunks.length;
+    if (complete) {
+      pipeline.status = "complete";
+      pipeline.result = mergeSyllabusChunkAnalyses(
+        pipeline.chunks.flatMap((chunk) =>
+          chunk.memory ? [chunk.memory] : [],
+        ),
       );
     }
 
-    console.log("Syllabus analysis payload:", {
-      fileName: candidate.name,
-      pageCount,
-      extractedCharacters: text.length,
-      roughInputTokens: Math.ceil(text.length / 4),
-    });
+    const { error: persistError } = await context.supabase
+      .from("syllabus_analyses")
+      .update({
+        raw_analysis: pipeline,
+        edited_analysis: complete ? pipeline.result : null,
+        confidence: pipeline.result?.overallConfidence ?? 0,
+      })
+      .eq("id", analysisId)
+      .eq("course_id", courseId)
+      .eq("user_id", context.user.id);
+    if (persistError) throw persistError;
 
-    const analysis = await generateStructured<SyllabusAnalysis>({
-      system: systemPrompt,
-      user: `Analyze this syllabus faithfully.
-
-FILE NAME: ${candidate.name}
-PAGE COUNT: ${pageCount}
-
-SYLLABUS TEXT:
-${text}`,
-      schemaName: "syllabus_analysis",
-      schema: syllabusSchema,
-      temperature: 0.05,
-      // A full semester schedule can contain dozens of rows. The earlier cap
-      // could truncate otherwise-valid structured JSON before its closing
-      // brace, making analysis look like a server failure.
-      maxTokens: 8000,
-    });
+    if (!complete || !pipeline.result) {
+      return NextResponse.json(
+        {
+          ok: true,
+          status: "processing",
+          requestId,
+          analysisId,
+          completedChunks,
+          totalChunks: pipeline.chunks.length,
+          progress: Math.round((completedChunks / pipeline.chunks.length) * 100),
+          retryAfterMs,
+        },
+        {
+          status: 202,
+          headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
+        },
+      );
+    }
 
     return NextResponse.json({
       ok: true,
+      status: "complete",
       requestId,
+      analysisId,
       provider: "groq",
-      model:
-        process.env.GROQ_SYLLABUS_MODEL ||
-        "openai/gpt-oss-120b",
-      analysis,
+      analysis: pipeline.result,
     });
   } catch (error) {
     console.error("Groq syllabus analysis failed:", error);
