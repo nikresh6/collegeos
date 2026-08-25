@@ -4,6 +4,7 @@ import { extractPdfText } from "../../../lib/pdf";
 import { userContext } from "../../../lib/server-auth";
 import {
   buildSyllabusChunks,
+  deriveDeterministicSyllabusFacts,
   isSyllabusPipelineState,
   mergeSyllabusChunkAnalyses,
   parseTaggedSyllabusChunk,
@@ -73,6 +74,12 @@ Rules for output:
 - Omit unsupported lines rather than inventing values.
 - COURSE and CONFIDENCE may appear once. Every other tag may repeat.
 - Use UNASSIGNED only when a topic is explicit but no unit is supported.
+- Every explicitly weighted grading component must produce a GRADE_CATEGORY line. Do not confuse a grading component with the individual assessments inside it.
+- Every dated assessment or due item must produce both an ASSESSMENT line and a DATE line.
+- For a weekly M/W/F schedule table, emit one TOPIC for every non-empty Content cell using that column's exact date. Never combine an entire week into one TOPIC.
+- For every non-empty Due cell in a schedule table, emit an ASSESSMENT and DATE using that column's exact date.
+- A Week may be a UNIT, but its TOPIC rows must remain separate class meetings.
+- Emit each alternative final-exam date as its own DATE line.
 - Do not output JSON, markdown, headings, commentary, or code fences.
 - Do not place TAB characters inside a field.`;
 
@@ -145,16 +152,48 @@ async function analyzeSyllabusChunk({
     ],
     ...reasoningOptions,
     temperature: model.startsWith("qwen/") ? 0.4 : 0.05,
-    max_completion_tokens: 1100,
+    max_completion_tokens: 1800,
   });
 
   const content = completion.choices[0]?.message?.content;
   if (!content) throw new Error("Groq returned an empty syllabus chunk response.");
 
-  if (!/^(?:COURSE|GRADE_CATEGORY|GRADE_SCALE|ASSESSMENT|UNIT|TOPIC|DATE|POLICY|SCHEDULE_NOTE|WARNING|CONFIDENCE)\t/m.test(content)) {
+  if (completion.choices[0]?.finish_reason === "length") {
+    throw Object.assign(
+      new Error("The syllabus chunk response was truncated before completion."),
+      { status: 422, code: "SYLLABUS_CHUNK_QUALITY" },
+    );
+  }
+
+  if (
+    !/^(?:COURSE|GRADE_CATEGORY|GRADE_SCALE|ASSESSMENT|UNIT|TOPIC|DATE|POLICY|SCHEDULE_NOTE|WARNING)\t/m.test(content) ||
+    !/^CONFIDENCE\t/m.test(content)
+  ) {
     throw new Error("The syllabus chunk response did not contain usable tagged data.");
   }
-  return parseTaggedSyllabusChunk(content);
+
+  const analysis = parseTaggedSyllabusChunk(content);
+  const scheduleDates = new Set(
+    text.match(
+      /\b\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/gi,
+    ) ?? [],
+  ).size;
+  if (scheduleDates >= 8 && /\bContent\b/i.test(text)) {
+    const topicCount =
+      analysis.units.reduce((sum, unit) => sum + unit.topics.length, 0) +
+      analysis.unassignedTopics.length;
+    const minimumTopics = Math.max(1, Math.floor(scheduleDates * 0.65));
+    if (topicCount < minimumTopics) {
+      throw Object.assign(
+        new Error(
+          `The schedule extraction combined class meetings (${topicCount}/${scheduleDates}); retrying with another model.`,
+        ),
+        { status: 422, code: "SYLLABUS_CHUNK_QUALITY" },
+      );
+    }
+  }
+
+  return analysis;
 }
 
 function isGroqRateLimitError(message: string) {
@@ -357,7 +396,7 @@ export async function POST(request: Request) {
       }
 
       pipeline = {
-        pipelineVersion: 1,
+        pipelineVersion: 2,
         status: "processing",
         fileName: candidate.name,
         pageCount,
@@ -369,6 +408,7 @@ export async function POST(request: Request) {
           attempts: 0,
           lastError: null,
         })),
+        deterministicFacts: deriveDeterministicSyllabusFacts(text),
         result: null,
       };
 
@@ -444,7 +484,11 @@ export async function POST(request: Request) {
 
         chunk.attempts += 1;
         chunk.lastError = errorMessage(result.reason);
-        if (!isTransientGroqError(result.reason) && chunk.attempts >= 3) {
+        const reasonCode = (result.reason as { code?: string })?.code;
+        if (
+          (!isTransientGroqError(result.reason) && chunk.attempts >= 3) ||
+          (reasonCode === "SYLLABUS_CHUNK_QUALITY" && chunk.attempts >= 6)
+        ) {
           throw result.reason;
         }
         retryAfterMs = Math.max(
@@ -461,9 +505,12 @@ export async function POST(request: Request) {
     if (complete) {
       pipeline.status = "complete";
       pipeline.result = mergeSyllabusChunkAnalyses(
-        pipeline.chunks.flatMap((chunk) =>
-          chunk.memory ? [chunk.memory] : [],
-        ),
+        [
+          pipeline.deterministicFacts,
+          ...pipeline.chunks.flatMap((chunk) =>
+            chunk.memory ? [chunk.memory] : [],
+          ),
+        ],
       );
     }
 
