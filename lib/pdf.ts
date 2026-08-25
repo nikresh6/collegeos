@@ -38,6 +38,7 @@ export async function extractPdfText(file: File) {
 
   const document = await loadingTask.promise;
   const pages: string[] = [];
+  const pageTexts: string[] = [];
 
   try {
     for (
@@ -60,6 +61,8 @@ export async function extractPdfText(file: File) {
         .replace(/\s+/g, " ")
         .trim();
 
+      pageTexts.push(text);
+
       pages.push(
         `\n\n===== PAGE ${pageNumber} =====\n${text}`,
       );
@@ -72,6 +75,7 @@ export async function extractPdfText(file: File) {
 
   return {
     pageCount: pages.length,
+    pageTexts,
     text: pages.join("").trim(),
   };
 }

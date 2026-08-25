@@ -442,6 +442,7 @@ export default function CoursePage() {
   const [syllabusAnalysis, setSyllabusAnalysis] =
     useState<SyllabusAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState("");
+  const [analysisProgress, setAnalysisProgress] = useState("");
   const [courseUnits, setCourseUnits] = useState<CourseUnit[]>([]);
   const [unassignedTopics, setUnassignedTopics] = useState<CourseTopic[]>([]);
   const [loadingStructure, setLoadingStructure] = useState(true);
@@ -1373,6 +1374,7 @@ export default function CoursePage() {
     try {
       setAnalyzingSyllabus(true);
       setAnalysisError("");
+      setAnalysisProgress("Preparing the syllabus...");
       setSyllabusError("");
 
       const { error: processingError } = await supabase
@@ -1395,45 +1397,85 @@ export default function CoursePage() {
       } = await supabase.auth.getSession();
       if (!session) throw new Error("You must be signed in.");
 
-      const response = await fetch("/api/analyze-syllabus", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ courseId, courseFileId: syllabus.id }),
-      });
+      let resultRecord: Record<string, unknown> = {};
+      for (let cycle = 0; cycle < 80; cycle += 1) {
+        const response = await fetch("/api/analyze-syllabus", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ courseId, courseFileId: syllabus.id }),
+        });
 
-      const responseText = await response.text();
-      let result: unknown = null;
-
-      try {
-        result = responseText ? JSON.parse(responseText) : null;
-      } catch {
-        throw new Error(
-          response.status === 504
-            ? "Syllabus analysis timed out. Your PDF is safe—tap Analyze to retry."
-            : `Syllabus analysis failed on the server (HTTP ${response.status}). Try again; if it repeats, the deployment is missing its AI configuration.`,
-        );
-      }
-
-      const resultRecord = isAnalysisRecord(result) ? result : {};
-
-      if (!response.ok || resultRecord.ok !== true) {
-        const errorCode = analysisString(resultRecord.code);
-        let message =
-          analysisString(resultRecord.error) ||
-          "AI could not analyze the syllabus.";
-
-        if (errorCode === "GROQ_RATE_LIMITED") {
-          message =
-            "Groq's current usage limit was reached. Your syllabus is safe. Try again after the limit resets.";
-        } else if (errorCode === "GROQ_AUTH_FAILED") {
-          message =
-            "The deployed AI service is not configured. Add GROQ_API_KEY to the Vercel Production environment and redeploy.";
+        const responseText = await response.text();
+        let result: unknown = null;
+        try {
+          result = responseText ? JSON.parse(responseText) : null;
+        } catch {
+          throw new Error(
+            response.status === 504
+              ? "Syllabus analysis timed out. Your saved progress is safe—tap Analyze to resume."
+              : `Syllabus analysis failed on the server (HTTP ${response.status}).`,
+          );
         }
 
-        throw new Error(message);
+        resultRecord = isAnalysisRecord(result) ? result : {};
+        const status = analysisString(resultRecord.status);
+        const retryable = resultRecord.retryable === true;
+        const retryAfterHeader = Number(response.headers.get("retry-after"));
+        const retryAfterMs = Math.max(
+          1_000,
+          Math.min(
+            90_000,
+            analysisNumber(resultRecord.retryAfterMs) ||
+              (Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+                ? retryAfterHeader * 1000
+                : 8_000),
+          ),
+        );
+
+        if (
+          response.status === 202 &&
+          resultRecord.ok === true &&
+          status === "processing"
+        ) {
+          const completed = analysisNumber(resultRecord.completedChunks);
+          const total = analysisNumber(resultRecord.totalChunks);
+          setAnalysisProgress(
+            total > 0
+              ? `Reading syllabus · ${completed} of ${total} page groups complete`
+              : "Reading the next syllabus section...",
+          );
+          await new Promise((resolve) => window.setTimeout(resolve, retryAfterMs));
+          continue;
+        }
+
+        if ((!response.ok || resultRecord.ok !== true) && retryable) {
+          setAnalysisProgress("AI is briefly busy. Your progress is saved; resuming automatically...");
+          await new Promise((resolve) => window.setTimeout(resolve, retryAfterMs));
+          continue;
+        }
+
+        if (!response.ok || resultRecord.ok !== true) {
+          const errorCode = analysisString(resultRecord.code);
+          let message =
+            analysisString(resultRecord.error) ||
+            "AI could not analyze the syllabus.";
+          if (errorCode === "GROQ_AUTH_FAILED") {
+            message =
+              "The deployed AI service is not configured. Add GROQ_API_KEY to the Vercel Production environment and redeploy.";
+          }
+          throw new Error(message);
+        }
+
+        if (status === "complete" || resultRecord.analysis) break;
+      }
+
+      if (!resultRecord.analysis) {
+        throw new Error(
+          "Syllabus analysis is still waiting for AI capacity. Your completed page groups are saved—tap Analyze to resume later.",
+        );
       }
 
       const analysis = normalizeSyllabusAnalysisForUi(
@@ -1444,6 +1486,7 @@ export default function CoursePage() {
       await saveSyllabusAnalysisDraft(
         resultRecord.analysis,
         analysis,
+        analysisString(resultRecord.analysisId),
       );
 
       const { error: readyError } = await supabase
@@ -1495,41 +1538,54 @@ export default function CoursePage() {
       }
     } finally {
       setAnalyzingSyllabus(false);
+      setAnalysisProgress("");
     }
-    }
+  }
 
   async function saveSyllabusAnalysisDraft(
-  rawAnalysis: unknown,
-  analysis: SyllabusAnalysis,
-) {
-  const { error: supersedeError } = await supabase
-    .from("syllabus_analyses")
-    .update({ status: "superseded" })
-    .eq("course_id", courseId)
-    .eq("status", "draft");
+    rawAnalysis: unknown,
+    analysis: SyllabusAnalysis,
+    analysisId?: string,
+  ) {
+    let supersedeQuery = supabase
+      .from("syllabus_analyses")
+      .update({ status: "superseded" })
+      .eq("course_id", courseId)
+      .eq("status", "draft");
+    if (analysisId) supersedeQuery = supersedeQuery.neq("id", analysisId);
+    const { error: supersedeError } = await supersedeQuery;
 
-  if (supersedeError) {
-    console.warn(
-      "Could not supersede previous syllabus draft:",
-      supersedeError,
-    );
+    if (supersedeError) {
+      console.warn("Could not supersede previous syllabus draft:", supersedeError);
+    }
+
+    if (analysisId) {
+      const { error: updateError } = await supabase
+        .from("syllabus_analyses")
+        .update({
+          edited_analysis: analysis,
+          status: "draft",
+          confidence: analysis.overallConfidence,
+        })
+        .eq("id", analysisId)
+        .eq("course_id", courseId);
+      if (updateError) throw updateError;
+      return;
+    }
+
+    const { error: draftError } = await supabase
+      .from("syllabus_analyses")
+      .insert({
+        course_id: courseId,
+        course_file_id: syllabus?.id ?? null,
+        raw_analysis: rawAnalysis,
+        edited_analysis: analysis,
+        status: "draft",
+        confidence: analysis.overallConfidence,
+      });
+
+    if (draftError) throw draftError;
   }
-
-  const { error: draftError } = await supabase
-    .from("syllabus_analyses")
-    .insert({
-      course_id: courseId,
-      course_file_id: syllabus?.id ?? null,
-      raw_analysis: rawAnalysis,
-      edited_analysis: analysis,
-      status: "draft",
-      confidence: analysis.overallConfidence,
-    });
-
-  if (draftError) {
-    throw draftError;
-  }
-}
   async function openSyllabus() {
     if (!syllabus) {
       return;
@@ -1967,6 +2023,7 @@ export default function CoursePage() {
                 syllabusError={syllabusError}
                 calendarUploadError={calendarUploadError}
                 analyzingSyllabus={analyzingSyllabus}
+                analysisProgress={analysisProgress}
                 syllabusAnalysis={syllabusAnalysis}
                 syllabusAnalyzed={syllabusAnalyzed}
                 unitCount={courseUnits.length}
@@ -2074,6 +2131,7 @@ function OverviewTab({
   syllabusError,
   calendarUploadError,
   analyzingSyllabus,
+  analysisProgress,
   syllabusAnalysis,
   syllabusAnalyzed,
   unitCount,
@@ -2096,6 +2154,7 @@ function OverviewTab({
   syllabusError: string;
   calendarUploadError: string;
   analyzingSyllabus: boolean;
+  analysisProgress: string;
   syllabusAnalysis: SyllabusAnalysis | null;
   syllabusAnalyzed: boolean;
   unitCount: number;
@@ -2138,6 +2197,7 @@ function OverviewTab({
               error={syllabusError}
               color={course.color}
               analyzing={analyzingSyllabus}
+              analysisProgress={analysisProgress}
               analyzed={syllabusAnalyzed}
               onChoose={onChooseSyllabus}
               onAnalyze={onAnalyzeSyllabus}
@@ -2202,9 +2262,8 @@ function OverviewTab({
                         AI is reading your syllabus.
                       </p>
                       <p className="mt-2 max-w-xl text-[11px] leading-5 text-white/28">
-                        Extracting course details, grading, assessments, dates,
-                        explicit lecture topics, and any supported study-unit
-                        structure.
+                        {analysisProgress ||
+                          "Extracting course details, grading, assessments, dates, explicit lecture topics, and any supported study-unit structure."}
                       </p>
                     </div>
                   </div>
@@ -5631,6 +5690,7 @@ function SyllabusSetupRow({
   error,
   color,
   analyzing,
+  analysisProgress,
   analyzed,
   onChoose,
   onAnalyze,
@@ -5642,6 +5702,7 @@ function SyllabusSetupRow({
   error: string;
   color: string;
   analyzing: boolean;
+  analysisProgress: string;
   analyzed: boolean;
   onChoose: () => void;
   onAnalyze: () => void;
@@ -5693,7 +5754,7 @@ function SyllabusSetupRow({
             </p>
           ) : analyzing ? (
             <p className="mt-1 text-[11px] leading-5 text-white/27">
-              AI is analyzing this syllabus...
+              {analysisProgress || "AI is analyzing this syllabus..."}
             </p>
           ) : syllabus ? (
             <div className="mt-1 min-w-0">
