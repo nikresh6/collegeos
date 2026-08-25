@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.ai-test-build/
 *.tsbuildinfo
 coverage/
 

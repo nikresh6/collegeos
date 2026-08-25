@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:ai": "tsc -p tests/tsconfig.json && node --test .ai-test-build/tests/ai-contracts.test.js"
   },
   "dependencies": {
     "@fullcalendar/react": "^7.0.2",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import ICAL from "ical.js";
 import { generateStructured } from "../../../../lib/ai/groq";
+import { parseIcs } from "../../../../lib/calendar-ics";
 import { extractPdfText } from "../../../../lib/pdf";
 import { userContext } from "../../../../lib/server-auth";
 
@@ -46,65 +46,6 @@ const schema = {
   },
   required: ["reply", "eventDrafts"],
 };
-
-function parts(date: Date) {
-  const iso = date.toISOString();
-  return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
-}
-
-function parseIcs(text: string, courseId: string): EventDraft[] {
-  const calendar = new ICAL.Component(ICAL.parse(text));
-  const drafts: EventDraft[] = [];
-  const rangeStart = new Date();
-  rangeStart.setMonth(rangeStart.getMonth() - 6);
-  const rangeEnd = new Date();
-  rangeEnd.setMonth(rangeEnd.getMonth() + 24);
-
-  function addOccurrence(event: ICAL.Event, start: Date, end: Date) {
-    const startParts = parts(start);
-    const endParts = parts(end);
-    const allDay = Boolean(event.startDate.isDate);
-    drafts.push({
-      courseId,
-      title: (event.summary || "Course event").slice(0, 200),
-      itemType: "other",
-      date: startParts.date,
-      startTime: allDay ? "" : startParts.time,
-      endDate: allDay ? new Date(end.getTime() - 1).toISOString().slice(0, 10) : endParts.date,
-      endTime: allDay ? "" : endParts.time,
-      allDay,
-      location: (event.location || "").slice(0, 300),
-      notes: (event.description || "").slice(0, 2000),
-      confidence: 100,
-      startsAt: start.toISOString(),
-      endsAt: end.toISOString(),
-    });
-  }
-
-  for (const component of calendar.getAllSubcomponents("vevent")) {
-    if (drafts.length >= 100) break;
-    const event = new ICAL.Event(component);
-    if (!event.isRecurring()) {
-      const start = event.startDate.toJSDate();
-      const end = event.endDate?.toJSDate() ?? new Date(start.getTime() + 60 * 60 * 1000);
-      addOccurrence(event, start, end);
-      continue;
-    }
-
-    const iterator = event.iterator();
-    for (let scanned = 0; scanned < 2000 && drafts.length < 100; scanned += 1) {
-      const next = iterator.next();
-      if (!next) break;
-      const occurrence = event.getOccurrenceDetails(next);
-      const start = occurrence.startDate.toJSDate();
-      if (start > rangeEnd) break;
-      if (start < rangeStart) continue;
-      addOccurrence(event, start, occurrence.endDate.toJSDate());
-    }
-  }
-
-  return drafts;
-}
 
 export async function POST(request: Request) {
   const context = await userContext(request);

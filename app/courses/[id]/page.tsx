@@ -4649,20 +4649,19 @@ function MaterialUploadWizard({
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("unitName", selectedUnit.name);
-      formData.append(
-        "topics",
-        JSON.stringify(
-          candidateTopics.map((topic) => ({
-            id: topic.id,
-            name: topic.name,
-            parentTopicId: topic.parent_topic_id,
-          })),
-        ),
-      );
+      formData.append("courseId", course.id);
+      formData.append("unitId", selectedUnit.id);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be signed in.");
 
       const response = await fetch("/api/analyze-material-topics", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: formData,
       });
 

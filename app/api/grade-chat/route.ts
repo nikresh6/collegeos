@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateStructured } from "../../../lib/ai/groq";
+import { userContext } from "../../../lib/server-auth";
 import {
   calculateGradebook,
   effectiveGradeScale,
@@ -141,6 +142,14 @@ function formatNumber(value: number) {
 }
 
 export async function POST(request: Request) {
+  const auth = await userContext(request);
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, error: "You are not signed in." },
+      { status: 401 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       message?: string;
@@ -163,6 +172,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (message.length > 2_000) {
+      return NextResponse.json(
+        { ok: false, error: "Keep grade questions under 2,000 characters." },
+        { status: 400 },
+      );
+    }
+
     if (!isContext(body.context)) {
       return NextResponse.json(
         {
@@ -170,6 +186,17 @@ export async function POST(request: Request) {
           error: "Grade context is missing.",
         },
         { status: 400 },
+      );
+    }
+
+    if (
+      body.context.categories.length > 100 ||
+      body.context.items.length > 1_000 ||
+      body.context.scale.length > 30
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "The gradebook is too large to analyze safely." },
+        { status: 413 },
       );
     }
 
@@ -187,7 +214,7 @@ export async function POST(request: Request) {
       .slice(-6)
       .map(
         (entry) =>
-          `${entry.role.toUpperCase()}: ${entry.content}`,
+          `${entry.role.toUpperCase()}: ${String(entry.content).slice(0, 2_000)}`,
       )
       .join("\n");
 
