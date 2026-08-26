@@ -5,11 +5,11 @@ import {
   type SyllabusPipelineChunk,
 } from "./syllabus-analysis-pipeline";
 
-export const TARGETED_SYLLABUS_MODE = "ai-whole-document-v4-assessment-units";
+export const TARGETED_SYLLABUS_MODE = "ai-whole-document-v5-efficient";
 
 const MODELS = [
-  "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
+  "openai/gpt-oss-120b",
   "qwen/qwen3.6-27b",
 ] as const;
 
@@ -89,8 +89,19 @@ function errorStatus(error: unknown) {
   return Number.isFinite(status) ? status : null;
 }
 
+function normalizeTaggedContent(content: string, defaultConfidence: number) {
+  let cleaned = content.trim();
+  cleaned = cleaned.replace(/^```(?:text|txt)?\s*/i, "").replace(/\s*```$/i, "").trim();
+
+  if (!/^CONFIDENCE\t/m.test(cleaned)) {
+    cleaned = `${cleaned}\nCONFIDENCE\t${defaultConfidence}`;
+  }
+
+  return cleaned;
+}
+
 function hasVisibleGradeScale(sourceText: string) {
-  const text = sourceText.replace(/[–—]/g, "-");
+  const text = sourceText.replace(/[–-]/g, "-");
   return (
     /grading\s+scale/i.test(text) &&
     /\bA[-+]?\s+\d/i.test(text) &&
@@ -331,7 +342,7 @@ function buildRequest(model: string, sourceText: string) {
       },
     ],
     temperature: 0,
-    max_completion_tokens: 2800,
+    max_completion_tokens: 2000,
   };
 
   if (model.startsWith("openai/gpt-oss-")) {
@@ -355,7 +366,7 @@ function buildGradeScaleRequest(model: string, evidenceText: string) {
       },
     ],
     temperature: 0,
-    max_completion_tokens: 650,
+    max_completion_tokens: 500,
   };
 
   if (model.startsWith("openai/gpt-oss-")) {
@@ -377,7 +388,7 @@ async function recoverGradeScale(sourceText: string) {
       console.log("Focused grade-scale AI attempt:", {
         model,
         evidenceCharacters: evidenceText.length,
-        maxCompletionTokens: 650,
+        maxCompletionTokens: 500,
       });
 
       const completion = await getGroqClient().chat.completions.create(
@@ -391,19 +402,10 @@ async function recoverGradeScale(sourceText: string) {
           status: 422,
         });
       }
-      if (choice.finish_reason === "length") {
-        throw Object.assign(new Error("AI grade-scale extraction was truncated."), {
-          status: 422,
-        });
-      }
-      if (!/^CONFIDENCE\t/m.test(content)) {
-        throw Object.assign(
-          new Error("AI grade-scale extraction did not follow the tagged format."),
-          { status: 422 },
-        );
-      }
 
-      const analysis = parseTaggedSyllabusChunk(content);
+      const analysis = parseTaggedSyllabusChunk(
+        normalizeTaggedContent(content, 90),
+      );
       if (!hasUsableGradeScale(analysis)) {
         throw Object.assign(
           new Error("AI did not return a complete, correctly ordered visible letter-grade scale."),
@@ -458,7 +460,7 @@ export async function analyzeSyllabusWithTargetedAI(
       console.log("Whole-syllabus AI attempt:", {
         model,
         characters: sourceText.length,
-        maxCompletionTokens: 2800,
+        maxCompletionTokens: 2000,
       });
 
       const completion = await getGroqClient().chat.completions.create(
@@ -472,19 +474,10 @@ export async function analyzeSyllabusWithTargetedAI(
           status: 422,
         });
       }
-      if (choice.finish_reason === "length") {
-        throw Object.assign(new Error("AI syllabus extraction was truncated."), {
-          status: 422 },
-        );
-      }
-      if (!/^CONFIDENCE\t/m.test(content)) {
-        throw Object.assign(
-          new Error("AI syllabus extraction did not follow the tagged format."),
-          { status: 422 },
-        );
-      }
 
-      const analysis = parseTaggedSyllabusChunk(content);
+      const analysis = parseTaggedSyllabusChunk(
+        normalizeTaggedContent(content, choice.finish_reason === "length" ? 70 : 85),
+      );
       collapseWeekBucketsIntoAssessmentBlocks(analysis);
       validateAnalysisExceptGradeScale(analysis, sourceText);
 
