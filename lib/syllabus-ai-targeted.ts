@@ -5,7 +5,7 @@ import {
   type SyllabusPipelineChunk,
 } from "./syllabus-analysis-pipeline";
 
-export const TARGETED_SYLLABUS_MODE = "ai-layout-aware-v7-repair-first";
+export const TARGETED_SYLLABUS_MODE = "ai-layout-aware-v8-complete-schedule";
 
 const MODELS = [
   "openai/gpt-oss-20b",
@@ -43,12 +43,14 @@ ACADEMIC STRUCTURE
 - Exam rows are assessment boundaries, never topics.
 - Preserve genuine professor-defined content units/modules only when they are actually academic groupings.
 - Preserve every explicit scheduled instructional topic exactly once with its correct date, reading, and assignment.
+- Read the ENTIRE schedule through the end of the semester before answering. Do not stop after the first exam block.
 - Be especially careful with multi-column schedule grids and use [x=...] coordinates to keep cells aligned.
 - Do not infer detailed topics that the syllabus does not explicitly state.
 
 CALENDAR
 - Extract major exams, explicitly scheduled quizzes, assignment/project deadlines, presentations, required events, and explicit no-class/break dates.
 - Do not turn ordinary lecture dates into important calendar events.
+- Do not output a DATE row for an event already emitted as an ASSESSMENT. Each event should exist once.
 - Preserve alternative final-exam dates as distinct options.
 
 POLICIES
@@ -82,17 +84,21 @@ Return ONLY:
 GRADE_SCALE<TAB>letter grade<TAB>minimum percent<TAB>maximum percent<TAB>notes
 CONFIDENCE<TAB>0-100`;
 
-const structurePrompt = `Read ONLY the supplied schedule evidence from a college syllabus.
+const structurePrompt = `Read ONLY the supplied schedule-table evidence from a college syllabus.
 The evidence may use [x=...] markers. Those are horizontal PDF coordinates and reveal table columns.
-Reconstruct the schedule grid first, then build the study hierarchy.
+Reconstruct every supplied schedule page first, then build the study hierarchy.
 
 Rules:
+- Read all supplied pages through the end of the semester before answering.
 - Week labels are schedule metadata, never study units.
 - Major tests define study blocks unless the professor explicitly gives a better academic unit hierarchy.
 - If there are Midterm 1, Midterm 2, and Final Exam boundaries, create Midterm 1, Midterm 2, and Final Exam assessment_block units.
 - Put each instructional topic into the test block it leads up to.
 - An exam row is an assessment boundary, not a topic.
-- Preserve each explicit topic exactly once with the correct date, reading, and assignment.
+- Preserve each explicit instructional topic exactly once with the correct date, reading, and assignment.
+- Include topics after Midterm 1 and before Midterm 2. Include topics after Midterm 2 through the end of instruction.
+- Holidays and no-class rows are DATE events, not TOPIC rows.
+- Do not output a DATE row for an event already emitted as an ASSESSMENT.
 - Do not invent topics or dates.
 
 Return ONLY:
@@ -139,7 +145,7 @@ function splitPages(sourceText: string) {
 
 function hasVisibleGradeScale(sourceText: string) {
   const text = sourceText.replace(/[–—]/g, "-");
-  return /grading\s+scale/i.test(text) && /\bA[-+]?\b/i.test(text) && /\bF\b/i.test(text);
+  return /grading\s+scale/i.test(text) && /\bA(?:[+-])?\s+\d/i.test(text) && /\bF\s+\d/i.test(text);
 }
 
 function hasUsableGradeScale(analysis: SyllabusAnalysis) {
@@ -177,29 +183,67 @@ function buildGradeScaleEvidence(sourceText: string) {
     .slice(0, 7500);
 }
 
+const MONTH_TOKEN =
+  "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
+
+function scheduleDateTokens(text: string) {
+  const shortPattern = new RegExp(`\\b\\d{1,2}\\s*[-‑–]\\s*${MONTH_TOKEN}\\b`, "gi");
+  const longPattern = new RegExp(`\\b${MONTH_TOKEN}\\s+\\d{1,2}\\b`, "gi");
+  return [...text.matchAll(shortPattern), ...text.matchAll(longPattern)].map((match) =>
+    match[0].toLowerCase().replace(/\s+/g, "").replace(/[‑–]/g, "-"),
+  );
+}
+
+function compactLayoutEvidence(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 function buildScheduleEvidence(sourceText: string) {
   const pages = splitPages(sourceText);
-  const firstSchedule = pages.findIndex((page) =>
-    /course\s+schedule|class\s+schedule|weekly\s+schedule|\bweek\b[\s\S]{0,500}\btopic/i.test(
+  const scored = pages.map((page) => {
+    const dateCount = scheduleDateTokens(page.text).length;
+    const layoutMarkers = page.text.match(/\[x=/g)?.length ?? 0;
+    const scheduleLanguage = /(?:course|class|weekly)\s+schedule|\bdate\b[\s\S]{0,250}\b(?:topic|content|reading|assignment)\b/i.test(
       page.text,
-    ),
+    );
+    return { page, dateCount, layoutMarkers, scheduleLanguage };
+  });
+
+  let selected = scored.filter(
+    ({ dateCount, layoutMarkers, scheduleLanguage }) =>
+      dateCount >= 5 && (layoutMarkers >= 8 || scheduleLanguage),
   );
 
-  if (firstSchedule >= 0) {
-    return pages
-      .slice(firstSchedule)
-      .map((page) => page.text)
-      .join("\n\n")
-      .slice(0, 14000);
+  if (selected.length === 0) {
+    selected = scored
+      .filter(({ dateCount }) => dateCount >= 3)
+      .sort(
+        (left, right) =>
+          right.dateCount + Math.min(right.layoutMarkers, 20) -
+          (left.dateCount + Math.min(left.layoutMarkers, 20)),
+      )
+      .slice(0, 4);
   }
 
-  const relevant = pages.filter((page) =>
-    /\bmidterm\b|\bfinal\s+exam\b|\btest\s*\d+\b|\btopic\b/i.test(page.text),
-  );
-  return (relevant.length ? relevant : pages)
-    .map((page) => page.text)
-    .join("\n\n")
-    .slice(0, 14000);
+  if (selected.length === 0) {
+    selected = scored.filter(({ page }) =>
+      /\bmidterm\b|\bfinal\s+exam\b|\btopic\b|\bcontent\b/i.test(page.text),
+    );
+  }
+
+  return selected
+    .sort((left, right) => left.page.pageNumber - right.page.pageNumber)
+    .map(({ page }) => compactLayoutEvidence(page.text))
+    .join("\n\n");
+}
+
+function visibleScheduleRowCount(sourceText: string) {
+  const evidence = buildScheduleEvidence(sourceText);
+  return new Set(scheduleDateTokens(evidence)).size;
 }
 
 function topicCount(analysis: SyllabusAnalysis) {
@@ -209,26 +253,32 @@ function topicCount(analysis: SyllabusAnalysis) {
   );
 }
 
-function majorAssessmentCount(analysis: SyllabusAnalysis, sourceText: string) {
+function majorAssessmentKeys(analysis: SyllabusAnalysis, sourceText: string) {
   const names = new Set<string>();
+  const addFromText = (value: string) => {
+    for (const match of value.matchAll(/\bmidterm\s*(\d+)\b/gi)) {
+      names.add(`midterm-${match[1]}`);
+    }
+    for (const match of value.matchAll(/\btest\s*(\d+)\b/gi)) {
+      names.add(`test-${match[1]}`);
+    }
+    if (/\bfinal\s+exam\b/i.test(value)) names.add("final");
+  };
+
   for (const assessment of analysis.assessments) {
-    const text = `${assessment.name} ${assessment.type}`.toLowerCase();
-    const midterm = text.match(/midterm\s*(\d+)/);
-    const test = text.match(/test\s*(\d+)/);
-    if (midterm) names.add(`midterm-${midterm[1]}`);
-    if (test) names.add(`test-${test[1]}`);
-    if (/final\s+exam/.test(text)) names.add("final");
+    addFromText(`${assessment.name} ${assessment.type}`);
   }
+  addFromText(sourceText);
+  return names;
+}
 
-  for (const match of sourceText.matchAll(/\bmidterm\s*(\d+)\b/gi)) {
-    names.add(`midterm-${match[1]}`);
-  }
-  for (const match of sourceText.matchAll(/\btest\s*(\d+)\b/gi)) {
-    names.add(`test-${match[1]}`);
-  }
-  if (/\bfinal\s+exam\b/i.test(sourceText)) names.add("final");
-
-  return names.size;
+function unitAssessmentKey(name: string) {
+  const midterm = name.match(/\bmidterm\s*(\d+)\b/i);
+  if (midterm) return `midterm-${midterm[1]}`;
+  const test = name.match(/\btest\s*(\d+)\b/i);
+  if (test) return `test-${test[1]}`;
+  if (/\bfinal\s+exam\b/i.test(name)) return "final";
+  return "";
 }
 
 function isWeekUnit(name: string) {
@@ -239,19 +289,82 @@ function structureNeedsRepair(analysis: SyllabusAnalysis, sourceText: string) {
   const totalTopics = topicCount(analysis);
   if (totalTopics === 0) return true;
 
-  const exams = majorAssessmentCount(analysis, sourceText);
-  if (exams < 2) return analysis.units.some((unit) => isWeekUnit(unit.name));
+  const visibleRows = visibleScheduleRowCount(sourceText);
+  if (visibleRows >= 12 && totalTopics < Math.floor(visibleRows * 0.65)) {
+    return true;
+  }
 
-  const nonEmptyUnits = analysis.units.filter((unit) => unit.topics.length > 0);
-  if (nonEmptyUnits.length < 2) return true;
+  const assessmentKeys = majorAssessmentKeys(analysis, sourceText);
+  if (assessmentKeys.size < 2) {
+    return analysis.units.some((unit) => isWeekUnit(unit.name));
+  }
+
   if (analysis.units.some((unit) => isWeekUnit(unit.name))) return true;
 
+  const nonEmptyAssessmentUnits = new Set(
+    analysis.units
+      .filter((unit) => unit.topics.length > 0)
+      .map((unit) => unitAssessmentKey(unit.name))
+      .filter(Boolean),
+  );
+
+  const requiredBlocks = Math.min(assessmentKeys.size, 3);
+  if (nonEmptyAssessmentUnits.size < requiredBlocks) return true;
+
+  for (const key of [...assessmentKeys].slice(0, requiredBlocks)) {
+    if (!nonEmptyAssessmentUnits.has(key)) return true;
+  }
+
+  const nonEmptyUnits = analysis.units.filter((unit) => unit.topics.length > 0);
   const largest = Math.max(...nonEmptyUnits.map((unit) => unit.topics.length));
-  return totalTopics >= 6 && largest / totalTopics > 0.82;
+  return totalTopics >= 8 && largest / totalTopics > 0.75;
 }
 
 function hasVisibleGradingWeights(sourceText: string) {
   return /grading[\s\S]{0,1600}\d+(?:\.\d+)?\s*%/i.test(sourceText);
+}
+
+function normalizeEventValue(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[–—‑]/g, "-")
+    .replace(/[^a-z0-9:+.-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeFinalAnalysis(analysis: SyllabusAnalysis) {
+  for (const unit of analysis.units) {
+    if (unitAssessmentKey(unit.name)) {
+      unit.basisType = "assessment_block";
+    }
+    if (/^(?:basis|coverage|description|assessment name)$/i.test(unit.basis.trim())) {
+      unit.basis = "";
+    }
+    if (/^(?:basis|coverage|description|assessment name)$/i.test(unit.coverage.trim())) {
+      unit.coverage = "";
+    }
+    if (/^(?:basis|coverage|description|assessment name)$/i.test(unit.description.trim())) {
+      unit.description = "";
+    }
+  }
+
+  const assessmentDates = new Set(
+    analysis.assessments
+      .map((assessment) => normalizeEventValue(assessment.date))
+      .filter(Boolean),
+  );
+  const seenDates = new Set<string>();
+  analysis.importantDates = analysis.importantDates.filter((item) => {
+    const date = normalizeEventValue(item.date);
+    if (date && assessmentDates.has(date)) return false;
+    const identity = `${date}|${normalizeEventValue(item.name)}|${normalizeEventValue(item.type)}`;
+    if (!identity.replace(/\|/g, "")) return false;
+    if (seenDates.has(identity)) return false;
+    seenDates.add(identity);
+    return true;
+  });
 }
 
 function buildRequest(model: string, sourceText: string, maxTokens: number, prompt: string) {
@@ -339,17 +452,18 @@ async function recoverGradeScale(sourceText: string) {
 }
 
 async function recoverStructure(sourceText: string) {
+  const scheduleEvidence = buildScheduleEvidence(sourceText);
   return runTaggedExtraction(
     MODELS,
     structurePrompt,
-    `SYLLABUS SCHEDULE EVIDENCE:\n${buildScheduleEvidence(sourceText)}`,
-    1800,
+    `SYLLABUS SCHEDULE TABLE PAGES:\n${scheduleEvidence}`,
+    2700,
     "Focused schedule-structure",
     (analysis) => {
       if (structureNeedsRepair(analysis, sourceText)) {
         throw Object.assign(
           new Error(
-            "Focused AI still did not distribute syllabus topics across assessment blocks correctly.",
+            "Focused AI still did not recover the complete schedule across assessment blocks.",
           ),
           { status: 422 },
         );
@@ -375,15 +489,15 @@ function validateFinalAnalysis(analysis: SyllabusAnalysis, sourceText: string) {
 
   if (structureNeedsRepair(analysis, sourceText)) {
     throw Object.assign(
-      new Error("AI syllabus structure is still invalid after focused schedule repair."),
+      new Error("AI syllabus structure is still incomplete after focused schedule repair."),
       { status: 422 },
     );
   }
 
   if (hasVisibleGradingWeights(sourceText) && analysis.gradingCategories.length === 0) {
     throw Object.assign(new Error("AI missed explicitly stated grading weights."), {
-      status: 422,
-    });
+      status: 422 },
+    );
   }
 }
 
@@ -413,16 +527,12 @@ export async function analyzeSyllabusWithTargetedAI(
   let gradeScaleAttempts = 0;
   let structureAttempts = 0;
 
-  // Repair the schedule before final validation. A zero-topic main extraction is
-  // exactly the case this focused schedule reader exists to recover from.
   if (structureNeedsRepair(analysis, sourceText)) {
     const repaired = await recoverStructure(sourceText);
     analysis.assessments = repaired.analysis.assessments;
     analysis.units = repaired.analysis.units;
     analysis.unassignedTopics = repaired.analysis.unassignedTopics;
-    if (repaired.analysis.importantDates.length > 0) {
-      analysis.importantDates = repaired.analysis.importantDates;
-    }
+    analysis.importantDates = repaired.analysis.importantDates;
     structureModel = repaired.model;
     structureAttempts = repaired.failures.length + 1;
   }
@@ -434,6 +544,7 @@ export async function analyzeSyllabusWithTargetedAI(
     gradeScaleAttempts = repaired.failures.length + 1;
   }
 
+  normalizeFinalAnalysis(analysis);
   validateFinalAnalysis(analysis, sourceText);
 
   const modelsUsed = [
@@ -465,7 +576,7 @@ export async function analyzeSyllabusWithTargetedAI(
   if (structureModel) {
     pipelineChunks.push({
       index: pipelineChunks.length,
-      text: "Focused AI schedule-grid recovery",
+      text: "Focused AI complete schedule-grid recovery",
       status: "ready",
       memory: analysis,
       attempts: structureAttempts,
