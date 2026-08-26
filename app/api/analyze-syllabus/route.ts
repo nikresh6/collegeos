@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { groq } from "../../../lib/ai/groq";
+import { getGroqClient } from "../../../lib/ai/groq";
 import { extractPdfText } from "../../../lib/pdf";
 import { userContext } from "../../../lib/server-auth";
 import {
@@ -53,14 +53,14 @@ const SYLLABUS_MODEL_POOL = [
   "openai/gpt-oss-20b",
   "qwen/qwen3.6-27b",
   "openai/gpt-oss-120b",
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
+  "groq/compound-mini",
+  "groq/compound",
 ] as const;
 
 const TARGET_CHUNK_CHARACTERS = 3000;
 const MAX_CHUNK_CHARACTERS = 3500;
 const LARGE_PIPELINE_CHUNK_CHARACTERS = 4100;
-const SUCCESSFUL_BATCH_COOLDOWN_MS = 10_000;
+const SUCCESSFUL_BATCH_COOLDOWN_MS = 1_000;
 
 const taggedOutputPrompt = `OUTPUT FORMAT:
 Return ONLY lines in this tagged format. Use literal TAB characters between fields.
@@ -196,6 +196,9 @@ function isTransientGroqError(error: unknown) {
   const message = candidate?.message?.toLowerCase() ?? "";
   const code = candidate?.code?.toLowerCase() ?? "";
   return (
+    status === 400 && message.includes("reasoning_effort") ||
+    status === 403 ||
+    status === 404 ||
     status === 408 ||
     status === 422 ||
     status === 424 ||
@@ -205,7 +208,10 @@ function isTransientGroqError(error: unknown) {
     message.includes("rate limit") ||
     message.includes("temporarily unavailable") ||
     message.includes("capacity") ||
-    message.includes("timeout")
+    message.includes("timeout") ||
+    message.includes("model_not_found") ||
+    message.includes("does not exist") ||
+    message.includes("do not have access")
   );
 }
 
@@ -263,7 +269,7 @@ async function analyzeSyllabusChunk({
   total: number;
   model: string;
 }) {
-  const completion = await groq.chat.completions.create({
+  const completion = await getGroqClient().chat.completions.create({
     model,
     messages: [
       {
@@ -359,9 +365,7 @@ function isGroqAuthError(message: string) {
 function shouldRebuildOldPipeline(pipeline: SyllabusPipelineState) {
   if (pipeline.status !== "processing") return false;
   return pipeline.chunks.some(
-    (chunk) =>
-      chunk.text.length > LARGE_PIPELINE_CHUNK_CHARACTERS ||
-      chunk.attempts >= 2,
+    (chunk) => chunk.text.length > LARGE_PIPELINE_CHUNK_CHARACTERS,
   );
 }
 
@@ -617,34 +621,48 @@ export async function POST(request: Request) {
       (chunk) => chunk.status !== "ready",
     );
     const batch = pending.slice(0, SYLLABUS_MODEL_POOL.length);
-    let retryAfterMs =
-      pending.length > SYLLABUS_MODEL_POOL.length
-        ? SUCCESSFUL_BATCH_COOLDOWN_MS
-        : 5_000;
+    let retryAfterMs = SUCCESSFUL_BATCH_COOLDOWN_MS;
 
     if (batch.length) {
+      const laneModels = batch.map((chunk, lane) =>
+        SYLLABUS_MODEL_POOL[
+          (lane + chunk.attempts) % SYLLABUS_MODEL_POOL.length
+        ],
+      );
+
+      console.log("Syllabus batch starting:", {
+        analysisId,
+        chunks: batch.map((chunk, index) => ({
+          chunk: chunk.index + 1,
+          attempt: chunk.attempts + 1,
+          model: laneModels[index],
+        })),
+      });
+
       const results = await Promise.allSettled(
-        batch.map((chunk, lane) => {
-          const model =
-            SYLLABUS_MODEL_POOL[
-              (lane + chunk.attempts) % SYLLABUS_MODEL_POOL.length
-            ];
-          return analyzeSyllabusChunk({
+        batch.map((chunk, lane) =>
+          analyzeSyllabusChunk({
             text: chunk.text,
             index: chunk.index,
             total: pipeline!.chunks.length,
-            model,
-          });
-        }),
+            model: laneModels[lane],
+          }),
+        ),
       );
 
       for (let index = 0; index < results.length; index += 1) {
         const chunk = batch[index];
         const result = results[index];
+        const model = laneModels[index];
         if (result.status === "fulfilled") {
           chunk.status = "ready";
           chunk.memory = result.value;
           chunk.lastError = null;
+          console.log("Syllabus chunk ready:", {
+            analysisId,
+            chunk: chunk.index + 1,
+            model,
+          });
           continue;
         }
 
@@ -652,6 +670,15 @@ export async function POST(request: Request) {
         chunk.lastError = errorMessage(result.reason);
         const reasonCode = (result.reason as { code?: string })?.code;
         const transient = isTransientGroqError(result.reason);
+
+        console.warn("Syllabus chunk failed:", {
+          analysisId,
+          chunk: chunk.index + 1,
+          model,
+          attempt: chunk.attempts,
+          status: errorStatus(result.reason),
+          error: chunk.lastError,
+        });
 
         if (!transient && chunk.attempts >= 3) {
           throw result.reason;
@@ -756,7 +783,7 @@ export async function POST(request: Request) {
         },
         {
           status: 429,
-          headers: { "Retry-After": "10" },
+          headers: { "Retry-After": "1" },
         },
       );
     }
