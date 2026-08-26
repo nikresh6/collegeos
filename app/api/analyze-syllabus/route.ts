@@ -15,6 +15,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 240;
 
+type TargetedPipelineState = SyllabusPipelineState & {
+  analysisMode: string;
+  taskModels?: Record<string, string>;
+};
+
 function topicCount(analysis: SyllabusAnalysis) {
   return (
     analysis.unassignedTopics.length +
@@ -53,7 +58,7 @@ function blankAnalysis(): SyllabusAnalysis {
   };
 }
 
-function isCurrentTargetedPipeline(value: unknown) {
+function isCurrentTargetedPipeline(value: unknown): value is TargetedPipelineState {
   return (
     isSyllabusPipelineState(value) &&
     (value as SyllabusPipelineState & { analysisMode?: string }).analysisMode ===
@@ -249,8 +254,7 @@ export async function POST(request: Request) {
       result.courseInfo.credits = Number(course.credits);
     }
 
-    const pipeline: SyllabusPipelineState & {
-      analysisMode: string;
+    const pipeline: TargetedPipelineState & {
       taskModels: Record<string, string>;
     } = {
       pipelineVersion: 2,
@@ -317,7 +321,8 @@ export async function POST(request: Request) {
     console.error("Syllabus analysis failed:", error);
     const message = errorMessage(error);
     const upstreamStatus = errorStatus(error);
-    const rateLimited = upstreamStatus === 429 || message.toLowerCase().includes("rate limit");
+    const rateLimited =
+      upstreamStatus === 429 || message.toLowerCase().includes("rate limit");
 
     return NextResponse.json(
       {
