@@ -95,6 +95,18 @@ function hasVisibleGradeScale(sourceText: string) {
   );
 }
 
+function hasUsableGradeScale(analysis: SyllabusAnalysis) {
+  return (
+    analysis.gradingScale.length >= 5 &&
+    analysis.gradingScale.every(
+      (row) =>
+        Number.isFinite(row.minPercent) &&
+        Number.isFinite(row.maxPercent) &&
+        row.minPercent <= row.maxPercent,
+    )
+  );
+}
+
 function hasVisibleGradingWeights(sourceText: string) {
   return /(?:grading|assessment|components|weights)[\s\S]{0,1800}\d+(?:\.\d+)?\s*%/i.test(
     sourceText,
@@ -268,9 +280,9 @@ async function recoverGradeScale(sourceText: string) {
       }
 
       const analysis = parseTaggedSyllabusChunk(content);
-      if (analysis.gradingScale.length < 5) {
+      if (!hasUsableGradeScale(analysis)) {
         throw Object.assign(
-          new Error("AI did not return the complete visible letter-grade scale."),
+          new Error("AI did not return a complete, correctly ordered visible letter-grade scale."),
           { status: 422 },
         );
       }
@@ -353,7 +365,7 @@ export async function analyzeSyllabusWithTargetedAI(
 
       let gradeScaleModel = "";
       let gradeScaleAttempts = 0;
-      if (hasVisibleGradeScale(sourceText) && analysis.gradingScale.length < 5) {
+      if (hasVisibleGradeScale(sourceText) && !hasUsableGradeScale(analysis)) {
         const recovered = await recoverGradeScale(sourceText);
         analysis.gradingScale = recovered.gradingScale;
         gradeScaleModel = recovered.model;
