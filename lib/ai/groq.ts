@@ -66,6 +66,9 @@ function isRetryableModelError(error: unknown) {
   const status = errorStatus(error);
   const message = candidate?.message?.toLowerCase() ?? "";
   const code = candidate?.code?.toLowerCase() ?? "";
+  const unavailableModel =
+    status === 403 &&
+    /model|permission|not allowed|restricted|access/.test(message);
 
   return (
     status === 408 ||
@@ -73,6 +76,7 @@ function isRetryableModelError(error: unknown) {
     status === 422 ||
     status === 424 ||
     status === 429 ||
+    unavailableModel ||
     (status !== null && status >= 500) ||
     code.includes("failed_generation") ||
     /empty response|could not be parsed|token limit|length|rate limit|temporar|capacity|timeout|failed_generation|unsupported/i.test(
@@ -199,7 +203,10 @@ export const groq = new Proxy({} as Groq, {
 });
 
 export function structuredModelCandidates(primaryModel: string) {
-  return rotateCandidates(primaryModel, STRUCTURED_MODEL_RING);
+  const supported = new Set<string>(STRUCTURED_MODEL_RING);
+  return supported.has(primaryModel)
+    ? rotateCandidates(primaryModel, STRUCTURED_MODEL_RING)
+    : [...STRUCTURED_MODEL_RING];
 }
 
 type PreparedStructuredPrompt = {
