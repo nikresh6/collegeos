@@ -231,14 +231,12 @@ function modelReasoningOptions(model: string) {
     return {
       reasoning_format: "hidden" as const,
       reasoning_effort: "none" as const,
-      include_reasoning: false,
     };
   }
   if (model.startsWith("openai/gpt-oss-")) {
     return {
       reasoning_format: "hidden" as const,
       reasoning_effort: "low" as const,
-      include_reasoning: false,
     };
   }
   return {};
