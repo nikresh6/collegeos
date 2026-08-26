@@ -60,7 +60,7 @@ const SYLLABUS_MODEL_POOL = [
 const TARGET_CHUNK_CHARACTERS = 3000;
 const MAX_CHUNK_CHARACTERS = 3500;
 const LARGE_PIPELINE_CHUNK_CHARACTERS = 4100;
-const SUCCESSFUL_BATCH_COOLDOWN_MS = 1_000;
+const SUCCESSFUL_BATCH_COOLDOWN_MS = 750;
 
 const taggedOutputPrompt = `OUTPUT FORMAT:
 Return ONLY lines in this tagged format. Use literal TAB characters between fields.
@@ -196,7 +196,7 @@ function isTransientGroqError(error: unknown) {
   const message = candidate?.message?.toLowerCase() ?? "";
   const code = candidate?.code?.toLowerCase() ?? "";
   return (
-    status === 400 && message.includes("reasoning_effort") ||
+    (status === 400 && message.includes("reasoning_effort")) ||
     status === 403 ||
     status === 404 ||
     status === 408 ||
@@ -218,6 +218,7 @@ function isTransientGroqError(error: unknown) {
 function retryAfterMilliseconds(error: unknown) {
   const candidate = error as {
     headers?: Headers | Record<string, string | undefined>;
+    message?: string;
   };
   const headers = candidate?.headers;
   let raw: string | null | undefined;
@@ -226,17 +227,34 @@ function retryAfterMilliseconds(error: unknown) {
   } else if (headers) {
     raw = (headers as Record<string, string | undefined>)["retry-after"];
   }
+
   const seconds = Number(raw);
-  return Number.isFinite(seconds) && seconds > 0
-    ? Math.min(90_000, Math.ceil(seconds * 1000))
-    : SUCCESSFUL_BATCH_COOLDOWN_MS;
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(90_000, Math.max(250, Math.ceil(seconds * 1000)));
+  }
+
+  const message = candidate?.message ?? "";
+  const retryMatch = message.match(
+    /try again in\s+([\d.]+)\s*(ms|milliseconds?|s|sec|seconds?)/i,
+  );
+  if (retryMatch) {
+    const amount = Number(retryMatch[1]);
+    if (Number.isFinite(amount) && amount > 0) {
+      const milliseconds = retryMatch[2].toLowerCase().startsWith("m")
+        ? amount
+        : amount * 1000;
+      return Math.min(90_000, Math.max(250, Math.ceil(milliseconds + 150)));
+    }
+  }
+
+  return SUCCESSFUL_BATCH_COOLDOWN_MS;
 }
 
 function modelReasoningOptions(model: string) {
   if (model.startsWith("qwen/")) {
     return {
       reasoning_format: "hidden" as const,
-      reasoning_effort: "none" as const,
+      reasoning_effort: "low" as const,
     };
   }
   if (model.startsWith("openai/gpt-oss-")) {
@@ -269,6 +287,12 @@ async function analyzeSyllabusChunk({
   total: number;
   model: string;
 }) {
+  const scheduleDates = countVisibleScheduleDates(text);
+  const scheduleHeavy =
+    scheduleDates >= 6 &&
+    /\b(content|topic|lecture|class|week|date|due|reading)\b/i.test(text);
+  const maxCompletionTokens = scheduleHeavy ? 3000 : 1800;
+
   const completion = await getGroqClient().chat.completions.create({
     model,
     messages: [
@@ -283,7 +307,7 @@ async function analyzeSyllabusChunk({
     ],
     ...modelReasoningOptions(model),
     temperature: model.startsWith("qwen/") ? 0.28 : 0.05,
-    max_completion_tokens: 1500,
+    max_completion_tokens: maxCompletionTokens,
   });
 
   const content = completion.choices[0]?.message?.content;
@@ -296,7 +320,9 @@ async function analyzeSyllabusChunk({
 
   if (completion.choices[0]?.finish_reason === "length") {
     throw Object.assign(
-      new Error("The syllabus chunk response was truncated before completion."),
+      new Error(
+        `The syllabus chunk response was truncated before completion at ${maxCompletionTokens} output tokens.`,
+      ),
       { status: 422, code: "SYLLABUS_CHUNK_QUALITY" },
     );
   }
@@ -314,11 +340,8 @@ async function analyzeSyllabusChunk({
   }
 
   const analysis = parseTaggedSyllabusChunk(content);
-  const scheduleDates = countVisibleScheduleDates(text);
-  const looksLikeSchedule =
-    /\b(content|topic|lecture|class|week|date|due|reading)\b/i.test(text);
 
-  if (scheduleDates >= 6 && looksLikeSchedule) {
+  if (scheduleHeavy) {
     const topicCount =
       analysis.units.reduce(
         (sum, unit) => sum + unit.topics.length,
@@ -743,7 +766,7 @@ export async function POST(request: Request) {
           status: 202,
           headers: {
             "Retry-After": String(
-              Math.ceil(retryAfterMs / 1000),
+              Math.max(1, Math.ceil(retryAfterMs / 1000)),
             ),
           },
         },
