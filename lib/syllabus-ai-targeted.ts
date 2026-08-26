@@ -5,7 +5,7 @@ import {
   type SyllabusPipelineChunk,
 } from "./syllabus-analysis-pipeline";
 
-export const TARGETED_SYLLABUS_MODE = "ai-layout-aware-v6";
+export const TARGETED_SYLLABUS_MODE = "ai-layout-aware-v7-repair-first";
 
 const MODELS = [
   "openai/gpt-oss-20b",
@@ -250,6 +250,10 @@ function structureNeedsRepair(analysis: SyllabusAnalysis, sourceText: string) {
   return totalTopics >= 6 && largest / totalTopics > 0.82;
 }
 
+function hasVisibleGradingWeights(sourceText: string) {
+  return /grading[\s\S]{0,1600}\d+(?:\.\d+)?\s*%/i.test(sourceText);
+}
+
 function buildRequest(model: string, sourceText: string, maxTokens: number, prompt: string) {
   const base = {
     model,
@@ -273,6 +277,7 @@ async function runTaggedExtraction(
   evidence: string,
   maxTokens: number,
   label: string,
+  validate?: (analysis: SyllabusAnalysis) => void,
 ) {
   const failures: Array<{ model: string; error: string; status: number | null }> = [];
 
@@ -295,6 +300,7 @@ async function runTaggedExtraction(
       const analysis = parseTaggedSyllabusChunk(
         normalizeTaggedContent(content, choice.finish_reason === "length" ? 70 : 90),
       );
+      validate?.(analysis);
       return { analysis, model, failures };
     } catch (error) {
       const failure = {
@@ -315,48 +321,66 @@ async function runTaggedExtraction(
 }
 
 async function recoverGradeScale(sourceText: string) {
-  const result = await runTaggedExtraction(
+  return runTaggedExtraction(
     MODELS,
     gradeScalePrompt,
     `SYLLABUS GRADING EVIDENCE:\n${buildGradeScaleEvidence(sourceText)}`,
     500,
     "Focused grade-scale",
+    (analysis) => {
+      if (!hasUsableGradeScale(analysis)) {
+        throw Object.assign(
+          new Error("Focused AI did not return a usable grading scale."),
+          { status: 422 },
+        );
+      }
+    },
   );
-  if (!hasUsableGradeScale(result.analysis)) {
-    throw Object.assign(new Error("Focused AI did not return a usable grading scale."), {
-      status: 422,
-    });
-  }
-  return result;
 }
 
 async function recoverStructure(sourceText: string) {
-  const result = await runTaggedExtraction(
+  return runTaggedExtraction(
     MODELS,
     structurePrompt,
     `SYLLABUS SCHEDULE EVIDENCE:\n${buildScheduleEvidence(sourceText)}`,
     1800,
     "Focused schedule-structure",
+    (analysis) => {
+      if (structureNeedsRepair(analysis, sourceText)) {
+        throw Object.assign(
+          new Error(
+            "Focused AI still did not distribute syllabus topics across assessment blocks correctly.",
+          ),
+          { status: 422 },
+        );
+      }
+    },
   );
-  if (structureNeedsRepair(result.analysis, sourceText)) {
-    throw Object.assign(
-      new Error("Focused AI still did not distribute syllabus topics across assessment blocks correctly."),
-      { status: 422 },
-    );
-  }
-  return result;
 }
 
-function validateMainAnalysis(analysis: SyllabusAnalysis, sourceText: string) {
-  if (topicCount(analysis) === 0 && /schedule|topic|week/i.test(sourceText)) {
-    throw Object.assign(new Error("AI missed the explicit course schedule topics."), {
+function validateMainCandidate(analysis: SyllabusAnalysis, sourceText: string) {
+  if (hasVisibleGradingWeights(sourceText) && analysis.gradingCategories.length === 0) {
+    throw Object.assign(new Error("AI missed explicitly stated grading weights."), {
       status: 422,
     });
   }
-  if (
-    analysis.gradingCategories.length === 0 &&
-    /grading[\s\S]{0,1600}\d+(?:\.\d+)?\s*%/i.test(sourceText)
-  ) {
+}
+
+function validateFinalAnalysis(analysis: SyllabusAnalysis, sourceText: string) {
+  if (topicCount(analysis) === 0 && /schedule|topic|week/i.test(sourceText)) {
+    throw Object.assign(new Error("AI missed the explicit course schedule topics after repair."), {
+      status: 422,
+    });
+  }
+
+  if (structureNeedsRepair(analysis, sourceText)) {
+    throw Object.assign(
+      new Error("AI syllabus structure is still invalid after focused schedule repair."),
+      { status: 422 },
+    );
+  }
+
+  if (hasVisibleGradingWeights(sourceText) && analysis.gradingCategories.length === 0) {
     throw Object.assign(new Error("AI missed explicitly stated grading weights."), {
       status: 422,
     });
@@ -379,23 +403,18 @@ export async function analyzeSyllabusWithTargetedAI(
     `FULL SYLLABUS WITH PAGE MARKERS:\n${sourceText}`,
     2200,
     "Whole-syllabus",
+    (analysis) => validateMainCandidate(analysis, sourceText),
   );
 
   const analysis = main.analysis;
-  validateMainAnalysis(analysis, sourceText);
 
   let gradeScaleModel = "";
   let structureModel = "";
   let gradeScaleAttempts = 0;
   let structureAttempts = 0;
 
-  if (hasVisibleGradeScale(sourceText) && !hasUsableGradeScale(analysis)) {
-    const repaired = await recoverGradeScale(sourceText);
-    analysis.gradingScale = repaired.analysis.gradingScale;
-    gradeScaleModel = repaired.model;
-    gradeScaleAttempts = repaired.failures.length + 1;
-  }
-
+  // Repair the schedule before final validation. A zero-topic main extraction is
+  // exactly the case this focused schedule reader exists to recover from.
   if (structureNeedsRepair(analysis, sourceText)) {
     const repaired = await recoverStructure(sourceText);
     analysis.assessments = repaired.analysis.assessments;
@@ -407,6 +426,15 @@ export async function analyzeSyllabusWithTargetedAI(
     structureModel = repaired.model;
     structureAttempts = repaired.failures.length + 1;
   }
+
+  if (hasVisibleGradeScale(sourceText) && !hasUsableGradeScale(analysis)) {
+    const repaired = await recoverGradeScale(sourceText);
+    analysis.gradingScale = repaired.analysis.gradingScale;
+    gradeScaleModel = repaired.model;
+    gradeScaleAttempts = repaired.failures.length + 1;
+  }
+
+  validateFinalAnalysis(analysis, sourceText);
 
   const modelsUsed = [
     ...new Set([main.model, gradeScaleModel, structureModel].filter(Boolean)),
