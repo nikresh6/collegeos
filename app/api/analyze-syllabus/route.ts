@@ -3,7 +3,6 @@ import { groq } from "../../../lib/ai/groq";
 import { extractPdfText } from "../../../lib/pdf";
 import { userContext } from "../../../lib/server-auth";
 import {
-  buildSyllabusChunks,
   deriveDeterministicSyllabusFacts,
   isSyllabusPipelineState,
   mergeSyllabusChunkAnalyses,
@@ -47,13 +46,21 @@ STRICT RULES:
 25. For every dated schedule row, create a topic with the class meeting date, topic/title, reading, and assignment exactly as supported by that row. A calendar table is course evidence even when it has no heading named "Unit".
 26. importantDates must include every explicit assignment deadline, exam/quiz date, project milestone, holiday, break, cancellation, and other date that belongs on a student's calendar. If an assignment's due date differs from its lecture/topic date, preserve the due date in importantDates rather than attaching it to the lecture date.
 27. assessments should include every explicitly named graded assessment. gradingCategories must preserve every explicit category and weight, and gradingScale must preserve every explicit cutoff.
-28. Do not spend output space explaining your reasoning. Return only the structured extraction.`;
+28. Treat line breaks, columns, page labels, and repeated schedule headers as document structure. Do not collapse separate table rows into one topic.
+29. Do not spend output space explaining your reasoning. Return only the structured extraction.`;
 
 const SYLLABUS_MODEL_POOL = [
   "openai/gpt-oss-20b",
   "qwen/qwen3.6-27b",
   "openai/gpt-oss-120b",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
 ] as const;
+
+const TARGET_CHUNK_CHARACTERS = 3000;
+const MAX_CHUNK_CHARACTERS = 3500;
+const LARGE_PIPELINE_CHUNK_CHARACTERS = 4100;
+const SUCCESSFUL_BATCH_COOLDOWN_MS = 10_000;
 
 const taggedOutputPrompt = `OUTPUT FORMAT:
 Return ONLY lines in this tagged format. Use literal TAB characters between fields.
@@ -83,13 +90,109 @@ Rules for output:
 - Do not output JSON, markdown, headings, commentary, or code fences.
 - Do not place TAB characters inside a field.`;
 
+function normalizePageText(value: string) {
+  return value
+    .replace(/\u0000/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{3,}/g, "  ")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+function splitOversizedLine(line: string) {
+  if (line.length <= MAX_CHUNK_CHARACTERS - 120) return [line];
+  const pieces: string[] = [];
+  const width = MAX_CHUNK_CHARACTERS - 180;
+  for (let start = 0; start < line.length; start += width) {
+    pieces.push(line.slice(start, start + width));
+  }
+  return pieces;
+}
+
+function pageFragments(rawPage: string, pageIndex: number) {
+  const page = normalizePageText(rawPage);
+  if (!page) return [];
+
+  const header = `===== PAGE ${pageIndex + 1} =====`;
+  if (header.length + page.length + 1 <= MAX_CHUNK_CHARACTERS) {
+    return [`${header}\n${page}`];
+  }
+
+  const lines = page.split("\n").flatMap(splitOversizedLine);
+  const fragments: string[] = [];
+  let current: string[] = [];
+  let currentLength = header.length + 1;
+
+  const flush = () => {
+    if (!current.length) return;
+    const part = fragments.length + 1;
+    fragments.push(
+      `===== PAGE ${pageIndex + 1} PART ${part} =====\n${current.join("\n")}`,
+    );
+    current = current.slice(-2);
+    currentLength =
+      `===== PAGE ${pageIndex + 1} CONTINUED =====\n`.length +
+      current.join("\n").length;
+  };
+
+  for (const line of lines) {
+    const nextLength = currentLength + line.length + 1;
+    if (current.length && nextLength > TARGET_CHUNK_CHARACTERS) {
+      flush();
+    }
+    current.push(line);
+    currentLength += line.length + 1;
+  }
+
+  if (current.length) {
+    const part = fragments.length + 1;
+    fragments.push(
+      `===== PAGE ${pageIndex + 1} PART ${part} =====\n${current.join("\n")}`,
+    );
+  }
+
+  return fragments;
+}
+
+function buildReliableSyllabusChunks(pageTexts: string[]) {
+  const fragments = pageTexts.flatMap(pageFragments);
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const fragment of fragments) {
+    const combined = current ? `${current}\n\n${fragment}` : fragment;
+    if (current && combined.length > MAX_CHUNK_CHARACTERS) {
+      chunks.push(current);
+      current = fragment;
+    } else {
+      current = combined;
+    }
+  }
+
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error ?? "Unknown error");
+  return error instanceof Error
+    ? error.message
+    : String(error ?? "Unknown error");
+}
+
+function errorStatus(error: unknown) {
+  const status = Number((error as { status?: number })?.status);
+  return Number.isFinite(status) ? status : null;
 }
 
 function isTransientGroqError(error: unknown) {
-  const candidate = error as { status?: number; code?: string; message?: string };
-  const status = Number(candidate?.status);
+  const candidate = error as {
+    status?: number;
+    code?: string;
+    message?: string;
+  };
+  const status = errorStatus(error);
   const message = candidate?.message?.toLowerCase() ?? "";
   const code = candidate?.code?.toLowerCase() ?? "";
   return (
@@ -97,7 +200,7 @@ function isTransientGroqError(error: unknown) {
     status === 422 ||
     status === 424 ||
     status === 429 ||
-    status >= 500 ||
+    (status !== null && status >= 500) ||
     code.includes("failed_generation") ||
     message.includes("rate limit") ||
     message.includes("temporarily unavailable") ||
@@ -120,7 +223,35 @@ function retryAfterMilliseconds(error: unknown) {
   const seconds = Number(raw);
   return Number.isFinite(seconds) && seconds > 0
     ? Math.min(90_000, Math.ceil(seconds * 1000))
-    : 8_000;
+    : SUCCESSFUL_BATCH_COOLDOWN_MS;
+}
+
+function modelReasoningOptions(model: string) {
+  if (model.startsWith("qwen/")) {
+    return {
+      reasoning_format: "hidden" as const,
+      reasoning_effort: "none" as const,
+      include_reasoning: false,
+    };
+  }
+  if (model.startsWith("openai/gpt-oss-")) {
+    return {
+      reasoning_format: "hidden" as const,
+      reasoning_effort: "low" as const,
+      include_reasoning: false,
+    };
+  }
+  return {};
+}
+
+function countVisibleScheduleDates(text: string) {
+  const patterns = [
+    /\b\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/gi,
+    /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}\b/gi,
+    /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g,
+  ];
+  const values = patterns.flatMap((pattern) => text.match(pattern) ?? []);
+  return new Set(values.map((value) => value.toLowerCase())).size;
 }
 
 async function analyzeSyllabusChunk({
@@ -134,10 +265,6 @@ async function analyzeSyllabusChunk({
   total: number;
   model: string;
 }) {
-  const reasoningOptions = model.startsWith("qwen/")
-    ? { reasoning_format: "hidden" as const, reasoning_effort: "none" as const }
-    : { reasoning_format: "hidden" as const, reasoning_effort: "low" as const };
-
   const completion = await groq.chat.completions.create({
     model,
     messages: [
@@ -150,13 +277,18 @@ async function analyzeSyllabusChunk({
         content: `CHUNK ${index + 1} OF ${total}:\n${text}`,
       },
     ],
-    ...reasoningOptions,
-    temperature: model.startsWith("qwen/") ? 0.4 : 0.05,
-    max_completion_tokens: 1800,
+    ...modelReasoningOptions(model),
+    temperature: model.startsWith("qwen/") ? 0.28 : 0.05,
+    max_completion_tokens: 1500,
   });
 
   const content = completion.choices[0]?.message?.content;
-  if (!content) throw new Error("Groq returned an empty syllabus chunk response.");
+  if (!content) {
+    throw Object.assign(
+      new Error("Groq returned an empty syllabus chunk response."),
+      { status: 422, code: "SYLLABUS_CHUNK_QUALITY" },
+    );
+  }
 
   if (completion.choices[0]?.finish_reason === "length") {
     throw Object.assign(
@@ -166,27 +298,36 @@ async function analyzeSyllabusChunk({
   }
 
   if (
-    !/^(?:COURSE|GRADE_CATEGORY|GRADE_SCALE|ASSESSMENT|UNIT|TOPIC|DATE|POLICY|SCHEDULE_NOTE|WARNING)\t/m.test(content) ||
+    !/^(?:COURSE|GRADE_CATEGORY|GRADE_SCALE|ASSESSMENT|UNIT|TOPIC|DATE|POLICY|SCHEDULE_NOTE|WARNING)\t/m.test(
+      content,
+    ) ||
     !/^CONFIDENCE\t/m.test(content)
   ) {
-    throw new Error("The syllabus chunk response did not contain usable tagged data.");
+    throw Object.assign(
+      new Error("The syllabus chunk response did not contain usable tagged data."),
+      { status: 422, code: "SYLLABUS_CHUNK_QUALITY" },
+    );
   }
 
   const analysis = parseTaggedSyllabusChunk(content);
-  const scheduleDates = new Set(
-    text.match(
-      /\b\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/gi,
-    ) ?? [],
-  ).size;
-  if (scheduleDates >= 8 && /\bContent\b/i.test(text)) {
+  const scheduleDates = countVisibleScheduleDates(text);
+  const looksLikeSchedule =
+    /\b(content|topic|lecture|class|week|date|due|reading)\b/i.test(text);
+
+  if (scheduleDates >= 6 && looksLikeSchedule) {
     const topicCount =
-      analysis.units.reduce((sum, unit) => sum + unit.topics.length, 0) +
-      analysis.unassignedTopics.length;
-    const minimumTopics = Math.max(1, Math.floor(scheduleDates * 0.65));
+      analysis.units.reduce(
+        (sum, unit) => sum + unit.topics.length,
+        0,
+      ) + analysis.unassignedTopics.length;
+    const minimumTopics = Math.max(
+      1,
+      Math.floor(scheduleDates * 0.55),
+    );
     if (topicCount < minimumTopics) {
       throw Object.assign(
         new Error(
-          `The schedule extraction combined class meetings (${topicCount}/${scheduleDates}); retrying with another model.`,
+          `The schedule extraction combined class meetings (${topicCount}/${scheduleDates}); retrying on another AI lane.`,
         ),
         { status: 422, code: "SYLLABUS_CHUNK_QUALITY" },
       );
@@ -198,7 +339,6 @@ async function analyzeSyllabusChunk({
 
 function isGroqRateLimitError(message: string) {
   const lower = message.toLowerCase();
-
   return (
     lower.includes("rate limit") ||
     lower.includes("rate_limit") ||
@@ -210,12 +350,20 @@ function isGroqRateLimitError(message: string) {
 
 function isGroqAuthError(message: string) {
   const lower = message.toLowerCase();
-
   return (
     lower.includes("api key") ||
     lower.includes("unauthorized") ||
     lower.includes("authentication") ||
     lower.includes("401")
+  );
+}
+
+function shouldRebuildOldPipeline(pipeline: SyllabusPipelineState) {
+  if (pipeline.status !== "processing") return false;
+  return pipeline.chunks.some(
+    (chunk) =>
+      chunk.text.length > LARGE_PIPELINE_CHUNK_CHARACTERS ||
+      chunk.attempts >= 2,
   );
 }
 
@@ -278,15 +426,16 @@ export async function POST(request: Request) {
     let analysisId = "";
 
     if (courseFileId) {
-      const { data: existingRows, error: existingError } = await context.supabase
-        .from("syllabus_analyses")
-        .select("id, raw_analysis")
-        .eq("course_id", courseId)
-        .eq("course_file_id", courseFileId)
-        .eq("user_id", context.user.id)
-        .eq("status", "draft")
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const { data: existingRows, error: existingError } =
+        await context.supabase
+          .from("syllabus_analyses")
+          .select("id, raw_analysis")
+          .eq("course_id", courseId)
+          .eq("course_file_id", courseFileId)
+          .eq("user_id", context.user.id)
+          .eq("status", "draft")
+          .order("created_at", { ascending: false })
+          .limit(5);
       if (existingError) throw existingError;
 
       const existing = existingRows?.find((row) =>
@@ -306,6 +455,11 @@ export async function POST(request: Request) {
           provider: "groq",
           analysis: pipeline.result,
         });
+      }
+
+      if (pipeline && shouldRebuildOldPipeline(pipeline)) {
+        pipeline = null;
+        analysisId = "";
       }
 
       if (!pipeline) {
@@ -332,7 +486,10 @@ export async function POST(request: Request) {
             .from("course-files")
             .download(storedFile.storage_path);
         if (downloadError || !storedBlob) {
-          throw downloadError ?? new Error("Could not download the stored syllabus.");
+          throw (
+            downloadError ??
+            new Error("Could not download the stored syllabus.")
+          );
         }
 
         candidate = new File([storedBlob], storedFile.file_name, {
@@ -390,9 +547,11 @@ export async function POST(request: Request) {
         );
       }
 
-      const chunks = buildSyllabusChunks(pageTexts);
+      const chunks = buildReliableSyllabusChunks(pageTexts);
       if (!chunks.length) {
-        throw new Error("The syllabus did not contain any readable page groups.");
+        throw new Error(
+          "The syllabus did not contain any readable page groups.",
+        );
       }
 
       pipeline = {
@@ -417,6 +576,7 @@ export async function POST(request: Request) {
         pageCount,
         extractedCharacters: text.length,
         chunks: chunks.length,
+        modelLanes: SYLLABUS_MODEL_POOL.length,
       });
 
       let supersedeQuery = context.supabase
@@ -431,30 +591,38 @@ export async function POST(request: Request) {
       const { error: supersedeError } = await supersedeQuery;
       if (supersedeError) throw supersedeError;
 
-      const { data: inserted, error: insertError } = await context.supabase
-        .from("syllabus_analyses")
-        .insert({
-          user_id: context.user.id,
-          course_id: courseId,
-          course_file_id: courseFileId || null,
-          raw_analysis: pipeline,
-          edited_analysis: null,
-          status: "draft",
-          confidence: 0,
-        })
-        .select("id")
-        .single();
+      const { data: inserted, error: insertError } =
+        await context.supabase
+          .from("syllabus_analyses")
+          .insert({
+            user_id: context.user.id,
+            course_id: courseId,
+            course_file_id: courseFileId || null,
+            raw_analysis: pipeline,
+            edited_analysis: null,
+            status: "draft",
+            confidence: 0,
+          })
+          .select("id")
+          .single();
       if (insertError) throw insertError;
       analysisId = inserted.id;
     }
 
     if (!pipeline || !analysisId) {
-      throw new Error("Could not initialize the syllabus analysis pipeline.");
+      throw new Error(
+        "Could not initialize the syllabus analysis pipeline.",
+      );
     }
 
-    const pending = pipeline.chunks.filter((chunk) => chunk.status !== "ready");
+    const pending = pipeline.chunks.filter(
+      (chunk) => chunk.status !== "ready",
+    );
     const batch = pending.slice(0, SYLLABUS_MODEL_POOL.length);
-    let retryAfterMs = 1_500;
+    let retryAfterMs =
+      pending.length > SYLLABUS_MODEL_POOL.length
+        ? SUCCESSFUL_BATCH_COOLDOWN_MS
+        : 5_000;
 
     if (batch.length) {
       const results = await Promise.allSettled(
@@ -485,12 +653,18 @@ export async function POST(request: Request) {
         chunk.attempts += 1;
         chunk.lastError = errorMessage(result.reason);
         const reasonCode = (result.reason as { code?: string })?.code;
+        const transient = isTransientGroqError(result.reason);
+
+        if (!transient && chunk.attempts >= 3) {
+          throw result.reason;
+        }
         if (
-          (!isTransientGroqError(result.reason) && chunk.attempts >= 3) ||
-          (reasonCode === "SYLLABUS_CHUNK_QUALITY" && chunk.attempts >= 6)
+          reasonCode === "SYLLABUS_CHUNK_QUALITY" &&
+          chunk.attempts >= 8
         ) {
           throw result.reason;
         }
+
         retryAfterMs = Math.max(
           retryAfterMs,
           retryAfterMilliseconds(result.reason),
@@ -502,16 +676,15 @@ export async function POST(request: Request) {
       (chunk) => chunk.status === "ready",
     ).length;
     const complete = completedChunks === pipeline.chunks.length;
+
     if (complete) {
       pipeline.status = "complete";
-      pipeline.result = mergeSyllabusChunkAnalyses(
-        [
-          pipeline.deterministicFacts,
-          ...pipeline.chunks.flatMap((chunk) =>
-            chunk.memory ? [chunk.memory] : [],
-          ),
-        ],
-      );
+      pipeline.result = mergeSyllabusChunkAnalyses([
+        pipeline.deterministicFacts,
+        ...pipeline.chunks.flatMap((chunk) =>
+          chunk.memory ? [chunk.memory] : [],
+        ),
+      ]);
     }
 
     const { error: persistError } = await context.supabase
@@ -535,12 +708,19 @@ export async function POST(request: Request) {
           analysisId,
           completedChunks,
           totalChunks: pipeline.chunks.length,
-          progress: Math.round((completedChunks / pipeline.chunks.length) * 100),
+          progress: Math.round(
+            (completedChunks / pipeline.chunks.length) * 100,
+          ),
+          modelLanes: SYLLABUS_MODEL_POOL.length,
           retryAfterMs,
         },
         {
           status: 202,
-          headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
+          headers: {
+            "Retry-After": String(
+              Math.ceil(retryAfterMs / 1000),
+            ),
+          },
         },
       );
     }
@@ -551,6 +731,7 @@ export async function POST(request: Request) {
       requestId,
       analysisId,
       provider: "groq",
+      modelLanes: SYLLABUS_MODEL_POOL.length,
       analysis: pipeline.result,
     });
   } catch (error) {
@@ -571,10 +752,14 @@ export async function POST(request: Request) {
           requestId,
           code: "GROQ_RATE_LIMITED",
           retryable: true,
+          retryAfterMs: SUCCESSFUL_BATCH_COOLDOWN_MS,
           error:
-            "Groq's current usage limit was reached. Try again after the limit resets.",
+            "All available AI lanes are temporarily cooling down. Your completed syllabus sections are saved and will resume automatically.",
         },
-        { status: 429 },
+        {
+          status: 429,
+          headers: { "Retry-After": "10" },
+        },
       );
     }
 
@@ -586,7 +771,7 @@ export async function POST(request: Request) {
           code: "GROQ_AUTH_FAILED",
           retryable: false,
           error:
-            "Groq authentication failed. Check GROQ_API_KEY in .env.local and restart the development server.",
+            "Groq authentication failed. Check GROQ_API_KEY in the deployed server environment.",
         },
         { status: 500 },
       );
@@ -598,6 +783,7 @@ export async function POST(request: Request) {
         requestId,
         code: "GROQ_ANALYSIS_FAILED",
         retryable: true,
+        retryAfterMs: SUCCESSFUL_BATCH_COOLDOWN_MS,
         error: message,
       },
       { status: 500 },
