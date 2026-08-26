@@ -227,6 +227,16 @@ body {
   text-decoration: line-through;
 }
 
+button[class*="bottom-[92px]"][class*="right-4"][class*="sm:bottom-5"] {
+  bottom: 7.75rem !important;
+}
+
+@media (min-width: 1024px) {
+  button[class*="bottom-[92px]"][class*="right-4"][class*="sm:bottom-5"] {
+    bottom: 5.25rem !important;
+  }
+}
+
 @media (max-width: 640px) {
   .premium-note-editor {
     padding: 22px 20px 70px;
