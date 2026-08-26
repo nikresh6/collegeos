@@ -5,7 +5,7 @@ import {
   type SyllabusPipelineChunk,
 } from "./syllabus-analysis-pipeline";
 
-export const TARGETED_SYLLABUS_MODE = "ai-whole-document-v3";
+export const TARGETED_SYLLABUS_MODE = "ai-whole-document-v4-assessment-units";
 
 const MODELS = [
   "openai/gpt-oss-120b",
@@ -32,11 +32,14 @@ GRADING
 - Never assume a standard grading scale.
 
 ACADEMIC STRUCTURE
-- If the professor explicitly names units/modules/sections, preserve them.
-- If there is no explicit unit hierarchy but the schedule is divided by major exams, create assessment_block units by READING the schedule in sequence.
-- In that case, the first block contains instructional material before the first midterm, the next contains material after that midterm and before the next midterm, and the final block contains material after the last midterm leading to the final exam.
+- CollegeOS study units should normally represent MAJOR TEST / ASSESSMENT BLOCKS, not calendar weeks.
+- A heading such as Week 1, Week 2, Week 3, Wk 4, or a date range is schedule organization only. NEVER create a UNIT from a week heading.
+- If the course has Midterm 1, Midterm 2, and a Final Exam, the default study hierarchy should be three assessment_block units named Midterm 1, Midterm 2, and Final Exam.
+- Put the instructional topics that occur before Midterm 1 into the Midterm 1 unit. Put topics after Midterm 1 and before Midterm 2 into the Midterm 2 unit. Put topics after Midterm 2 into the Final Exam unit.
+- The exam row itself is an assessment boundary and must NOT be emitted as a TOPIC.
+- Reviews may remain topics only when the syllabus explicitly schedules a substantive review session.
+- If the professor explicitly names meaningful content units/modules/sections, preserve them only when they are genuine academic groupings, not week labels. When major tests clearly define the study flow, prefer assessment_block units because students study by test.
 - Do not use holidays, breaks, due dates, presentation dates, or final-exam options as units.
-- Exam rows are assessments, not topics.
 - Preserve every explicit scheduled instructional topic exactly once. Keep the correct date, reading, and assignment with the correct class-meeting row. Be especially careful with multi-column schedule tables.
 - Do not infer detailed topics that the syllabus does not explicitly state.
 
@@ -120,9 +123,19 @@ function hasVisibleSchedule(sourceText: string) {
 }
 
 function hasVisibleMajorAssessments(sourceText: string) {
-  return /\b(?:midterm|final\s+exam|exam\s+date|project\s+presentation)\b/i.test(
+  return /\b(?:midterm|final\s+exam|exam\s+date|project\s+presentation|\btest\s*\d*)\b/i.test(
     sourceText,
   );
+}
+
+function isWeekBucketName(name: string) {
+  return /^\s*(?:week|wk)\s*(?:\d+|[ivxlcdm]+)\b/i.test(name);
+}
+
+function usesWeekBucketsAsUnits(analysis: SyllabusAnalysis) {
+  if (analysis.units.length < 2) return false;
+  const weekUnits = analysis.units.filter((unit) => isWeekBucketName(unit.name));
+  return weekUnits.length >= 2 && weekUnits.length / analysis.units.length >= 0.5;
 }
 
 function splitPages(sourceText: string) {
@@ -191,6 +204,15 @@ function validateAnalysisExceptGradeScale(
   ) {
     throw Object.assign(
       new Error("AI missed explicitly stated major assessment dates."),
+      { status: 422 },
+    );
+  }
+
+  if (hasVisibleMajorAssessments(sourceText) && usesWeekBucketsAsUnits(analysis)) {
+    throw Object.assign(
+      new Error(
+        "AI incorrectly used calendar weeks as study units. Study units must be organized around major tests/assessment blocks.",
+      ),
       { status: 422 },
     );
   }
@@ -350,8 +372,8 @@ export async function analyzeSyllabusWithTargetedAI(
       }
       if (choice.finish_reason === "length") {
         throw Object.assign(new Error("AI syllabus extraction was truncated."), {
-          status: 422,
-        });
+          status: 422 },
+        );
       }
       if (!/^CONFIDENCE\t/m.test(content)) {
         throw Object.assign(
