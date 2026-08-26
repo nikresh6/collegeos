@@ -8,6 +8,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+const ACCURATE_TRANSCRIPTION_MODEL =
+  process.env.GROQ_TRANSCRIPTION_MODEL ||
+  "whisper-large-v3";
+
 function bearerToken(
   request: Request,
 ) {
@@ -125,6 +129,116 @@ function kickWorker(
   });
 }
 
+async function refreshTranscriptIfNeeded({
+  request,
+  accessToken,
+  lectureId,
+  transcriptText,
+  transcriptionModel,
+}: {
+  request: Request;
+  accessToken: string;
+  lectureId: string;
+  transcriptText: string | null;
+  transcriptionModel: string | null;
+}) {
+  const needsAccurateTranscript =
+    !transcriptText?.trim() ||
+    transcriptionModel !==
+      ACCURATE_TRANSCRIPTION_MODEL;
+
+  if (!needsAccurateTranscript) {
+    return null;
+  }
+
+  const transcribeUrl =
+    new URL(
+      "/api/lectures/transcribe",
+      request.url,
+    );
+
+  const transcribeRequest =
+    new Request(
+      transcribeUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Authorization:
+            `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          lectureId,
+        }),
+      },
+    );
+
+  const response =
+    process.env.NODE_ENV ===
+    "development"
+      ? await (
+          await import(
+            "../../transcribe/route"
+          )
+        ).POST(
+          transcribeRequest,
+        )
+      : await fetch(
+          transcribeRequest,
+          {
+            cache: "no-store",
+          },
+        );
+
+  let payload:
+    Record<string, unknown> = {};
+
+  try {
+    payload =
+      (await response.json()) as Record<
+        string,
+        unknown
+      >;
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        ...payload,
+        error:
+          typeof payload.error ===
+          "string"
+            ? payload.error
+            : typeof payload.message ===
+                "string"
+              ? payload.message
+              : "Could not create the high-accuracy lecture transcript.",
+      },
+      {
+        status:
+          response.status,
+        headers:
+          response.headers.get(
+            "retry-after",
+          )
+            ? {
+                "Retry-After":
+                  response.headers.get(
+                    "retry-after",
+                  )!,
+              }
+            : undefined,
+      },
+    );
+  }
+
+  return null;
+}
+
 export async function POST(
   request: Request,
 ) {
@@ -196,7 +310,7 @@ export async function POST(
     } = await supabase
       .from("lectures")
       .select(
-        "id, user_id, course_id, course_file_id, transcript_text, notes_depth_percent, processing_state",
+        "id, user_id, course_id, course_file_id, transcript_text, transcription_model, notes_depth_percent, processing_state",
       )
       .eq("id", lectureId)
       .single();
@@ -219,18 +333,49 @@ export async function POST(
       );
     }
 
-    if (
-      !lecture.transcript_text
-        ?.trim()
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "The lecture needs a transcript before AI analysis can start.",
-        },
-        { status: 409 },
+    const {
+      data: noteRows,
+      error: notesError,
+    } = await supabase
+      .from("notes")
+      .select("id, raw_content")
+      .eq("lecture_id", lectureId)
+      .order("updated_at", {
+        ascending: false,
+      })
+      .limit(8);
+
+    if (notesError) {
+      throw notesError;
+    }
+
+    const hasUserNotes =
+      (noteRows ?? []).some(
+        (note) =>
+          typeof note.raw_content ===
+            "string" &&
+          note.raw_content
+            .replace(/<[^>]*>/g, " ")
+            .replace(/&nbsp;/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim().length > 0,
       );
+
+    const transcriptRefreshResponse =
+      await refreshTranscriptIfNeeded({
+        request,
+        accessToken,
+        lectureId,
+        transcriptText:
+          lecture.transcript_text ??
+          null,
+        transcriptionModel:
+          lecture.transcription_model ??
+          null,
+      });
+
+    if (transcriptRefreshResponse) {
+      return transcriptRefreshResponse;
     }
 
     const requestedDepth =
@@ -240,7 +385,7 @@ export async function POST(
           60,
       );
 
-    const depthPercent =
+    const baseDepthPercent =
       Math.max(
         0,
         Math.min(
@@ -254,6 +399,19 @@ export async function POST(
             : 60,
         ),
       );
+
+    /*
+     * A rebuild with student notes is an expansion request, not just a rerun.
+     * Give the final synthesis enough room to cover every supported note idea
+     * instead of silently returning the same five-section Balanced summary.
+     */
+    const depthPercent =
+      hasUserNotes
+        ? Math.max(
+            85,
+            baseDepthPercent,
+          )
+        : baseDepthPercent;
 
     const currentState =
       lecture.processing_state &&
@@ -290,6 +448,8 @@ export async function POST(
           cancelledAt: null,
           backgroundJobQueuedAt:
             now,
+          notesDrivenDeepPass:
+            hasUserNotes,
         },
       })
       .eq("id", lectureId);
@@ -353,6 +513,10 @@ export async function POST(
           last_result: {
             depthPercent,
             queuedAt: now,
+            notesDrivenDeepPass:
+              hasUserNotes,
+            transcriptionModel:
+              ACCURATE_TRANSCRIPTION_MODEL,
           },
         },
         {
@@ -376,8 +540,13 @@ export async function POST(
       status: "queued",
       lectureId,
       jobId: job.id,
+      depthPercent,
+      notesDrivenDeepPass:
+        hasUserNotes,
       message:
-        "AI analysis is running in the background. You can leave this page or close the tab.",
+        hasUserNotes
+          ? "Your high-accuracy transcript is ready. AI is rebuilding a deeper lecture analysis around your saved notes in the background."
+          : "AI analysis is running in the background. You can leave this page or close the tab.",
     });
   } catch (error) {
     console.error(
