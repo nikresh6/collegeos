@@ -2,15 +2,14 @@ import { NextResponse } from "next/server";
 import { extractPdfText } from "../../../lib/pdf";
 import { userContext } from "../../../lib/server-auth";
 import {
-  deriveDeterministicSyllabusFacts,
   isSyllabusPipelineState,
-  mergeSyllabusChunkAnalyses,
   type SyllabusAnalysis,
   type SyllabusPipelineState,
 } from "../../../lib/syllabus-analysis-pipeline";
-import { analyzeSyllabusAcrossLanes } from "../../../lib/syllabus-groq-lanes";
-import { reconcileSyllabusAnalysis } from "../../../lib/syllabus-reconcile";
-import { deriveDeterministicScheduleFacts } from "../../../lib/syllabus-schedule-fallback";
+import {
+  analyzeSyllabusWithTargetedAI,
+  TARGETED_SYLLABUS_MODE,
+} from "../../../lib/syllabus-ai-targeted";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,11 +26,39 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error ?? "Unknown error");
 }
 
-function appendWarning(analysis: SyllabusAnalysis, warning: string) {
-  const normalized = warning.toLowerCase();
-  if (!analysis.warnings.some((item) => item.toLowerCase() === normalized)) {
-    analysis.warnings.push(warning);
-  }
+function errorStatus(error: unknown) {
+  const status = Number((error as { status?: number })?.status);
+  return Number.isFinite(status) ? status : null;
+}
+
+function blankAnalysis(): SyllabusAnalysis {
+  return {
+    courseInfo: {
+      courseCode: "",
+      courseName: "",
+      professor: "",
+      term: "",
+      credits: 0,
+    },
+    gradingCategories: [],
+    gradingScale: [],
+    assessments: [],
+    units: [],
+    unassignedTopics: [],
+    importantDates: [],
+    policies: [],
+    scheduleNotes: [],
+    warnings: [],
+    overallConfidence: 0,
+  };
+}
+
+function isCurrentTargetedPipeline(value: unknown) {
+  return (
+    isSyllabusPipelineState(value) &&
+    (value as SyllabusPipelineState & { analysisMode?: string }).analysisMode ===
+      TARGETED_SYLLABUS_MODE
+  );
 }
 
 export async function POST(request: Request) {
@@ -102,7 +129,7 @@ export async function POST(request: Request) {
       if (existingError) throw existingError;
 
       const completed = existingRows?.find((row) => {
-        if (!isSyllabusPipelineState(row.raw_analysis)) return false;
+        if (!isCurrentTargetedPipeline(row.raw_analysis)) return false;
         return (
           row.raw_analysis.status === "complete" &&
           Boolean(row.raw_analysis.result) &&
@@ -112,7 +139,7 @@ export async function POST(request: Request) {
 
       if (
         completed &&
-        isSyllabusPipelineState(completed.raw_analysis) &&
+        isCurrentTargetedPipeline(completed.raw_analysis) &&
         completed.raw_analysis.result
       ) {
         return NextResponse.json({
@@ -120,9 +147,9 @@ export async function POST(request: Request) {
           status: "complete",
           requestId,
           analysisId: completed.id,
-          provider: "saved",
+          provider: "saved-ai-targeted",
           model: "saved",
-          modelLanes: 0,
+          modelLanes: completed.raw_analysis.chunks.length,
           analysis: completed.raw_analysis.result,
         });
       }
@@ -185,7 +212,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { text, pageCount, pageTexts } = await extractPdfText(candidate);
+    const { text, pageCount } = await extractPdfText(candidate);
     if (text.replace(/\s/g, "").length < 150) {
       return NextResponse.json(
         {
@@ -194,7 +221,7 @@ export async function POST(request: Request) {
           retryable: false,
           requestId,
           error:
-            "This PDF contains too little extractable text. It may be scanned or image-based. OCR fallback has not been enabled yet.",
+            "This PDF contains too little extractable text. It may be scanned or image-based.",
         },
         { status: 422 },
       );
@@ -204,32 +231,17 @@ export async function POST(request: Request) {
       fileName: candidate.name,
       pageCount,
       characters: text.length,
-      strategy: "deterministic-plus-five-lane-chunks",
+      strategy: TARGETED_SYLLABUS_MODE,
     });
 
-    const deterministicFacts = deriveDeterministicSyllabusFacts(text);
-    const scheduleFacts = deriveDeterministicScheduleFacts(text);
-    const deterministicCombined = mergeSyllabusChunkAnalyses([
-      deterministicFacts,
-      scheduleFacts,
-    ]);
+    // The LLMs search the full syllabus independently for four semantic tasks:
+    // grading, academic structure, calendar/assessments, and metadata/policies.
+    // Code only validates and stores those findings. It does not infer units,
+    // manufacture calendar events, or reconstruct a grade scale from regexes.
+    const aiResult = await analyzeSyllabusWithTargetedAI(text);
+    const result = aiResult.analysis;
 
-    // Groq is enrichment, not a hard dependency. Each model receives only a
-    // small page-sized chunk. A rate-limited model exits its lane and healthy
-    // lanes claim the remaining chunks. If all lanes are unavailable, the
-    // deterministic extraction below still produces a reviewable course.
-    const laneResult = await analyzeSyllabusAcrossLanes(pageTexts);
-
-    const merged = mergeSyllabusChunkAnalyses([
-      deterministicCombined,
-      ...laneResult.analyses,
-    ]);
-    const result = reconcileSyllabusAnalysis({
-      analysis: merged,
-      deterministicFacts: deterministicCombined,
-      sourceText: text,
-    });
-
+    // Existing course metadata is only a UI fallback if the syllabus omits it.
     result.courseInfo.courseCode ||= course.code ?? "";
     result.courseInfo.courseName ||= course.name ?? "";
     result.courseInfo.professor ||= course.professor ?? "";
@@ -237,29 +249,19 @@ export async function POST(request: Request) {
       result.courseInfo.credits = Number(course.credits);
     }
 
-    if (laneResult.unresolvedChunkCount > 0) {
-      appendWarning(
-        result,
-        `${laneResult.unresolvedChunkCount} syllabus chunk(s) could not be AI-enriched because the available Groq lanes were exhausted or unavailable. Explicit grading, dates, and schedule rows were still extracted deterministically. Re-analyze later to enrich any missing details.`,
-      );
-      if (result.overallConfidence > 82) result.overallConfidence = 82;
-    }
-
-    if (laneResult.modelsUsed.length === 0) {
-      appendWarning(
-        result,
-        "Groq enrichment was unavailable for this run. CollegeOS completed the syllabus foundation from deterministic PDF extraction instead of failing the upload.",
-      );
-    }
-
-    const pipeline: SyllabusPipelineState = {
+    const pipeline: SyllabusPipelineState & {
+      analysisMode: string;
+      taskModels: Record<string, string>;
+    } = {
       pipelineVersion: 2,
+      analysisMode: TARGETED_SYLLABUS_MODE,
       status: "complete",
       fileName: candidate.name,
       pageCount,
-      chunks: laneResult.pipelineChunks,
-      deterministicFacts: deterministicCombined,
+      chunks: aiResult.pipelineChunks,
+      deterministicFacts: blankAnalysis(),
       result,
+      taskModels: aiResult.taskModels,
     };
 
     let supersedeQuery = context.supabase
@@ -289,11 +291,9 @@ export async function POST(request: Request) {
       .single();
     if (insertError) throw insertError;
 
-    console.log("Syllabus analysis complete:", {
+    console.log("AI-targeted syllabus analysis complete:", {
       analysisId: inserted.id,
-      modelsUsed: laneResult.modelsUsed,
-      disabledModels: laneResult.disabledModels.map((item) => item.model),
-      unresolvedChunks: laneResult.unresolvedChunkCount,
+      taskModels: aiResult.taskModels,
       topics: topicCount(result),
       units: result.units.length,
       importantDates: result.importantDates.length,
@@ -307,30 +307,32 @@ export async function POST(request: Request) {
       status: "complete",
       requestId,
       analysisId: inserted.id,
-      provider:
-        laneResult.modelsUsed.length > 0 ? "groq+deterministic" : "deterministic",
-      model:
-        laneResult.modelsUsed.length > 0
-          ? laneResult.modelsUsed.join(",")
-          : "deterministic-only",
-      modelLanes: laneResult.laneCount,
-      unresolvedChunks: laneResult.unresolvedChunkCount,
+      provider: "groq-targeted-ai",
+      model: aiResult.modelsUsed.join(","),
+      taskModels: aiResult.taskModels,
+      modelLanes: aiResult.pipelineChunks.length,
       analysis: result,
     });
   } catch (error) {
     console.error("Syllabus analysis failed:", error);
     const message = errorMessage(error);
+    const upstreamStatus = errorStatus(error);
+    const rateLimited = upstreamStatus === 429 || message.toLowerCase().includes("rate limit");
 
     return NextResponse.json(
       {
         ok: false,
         requestId,
-        code: "SYLLABUS_ANALYSIS_FAILED",
+        code: rateLimited
+          ? "SYLLABUS_AI_RATE_LIMITED"
+          : "SYLLABUS_AI_EXTRACTION_FAILED",
         retryable: true,
-        retryAfterMs: 2000,
-        error: message,
+        retryAfterMs: rateLimited ? 15000 : 3000,
+        error: rateLimited
+          ? "The AI models are temporarily rate limited. CollegeOS did not replace the syllabus with algorithmically inferred data. Retry when a model lane is available."
+          : message,
       },
-      { status: 500 },
+      { status: rateLimited ? 429 : 503 },
     );
   }
 }
