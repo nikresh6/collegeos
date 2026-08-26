@@ -44,10 +44,7 @@ const RAW_CHAT_MODEL_RING = [
 
 const STRUCTURED_MODEL_RING = [
   "openai/gpt-oss-20b",
-  "qwen/qwen3.6-27b",
   "openai/gpt-oss-120b",
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
 ] as const;
 
 function errorStatus(error: unknown) {
@@ -131,6 +128,10 @@ function sanitizePayloadForModel(
     if ("reasoning_format" in next) {
       next.reasoning_format = "hidden";
     }
+  }
+
+  if ("reasoning_format" in next) {
+    delete next.include_reasoning;
   }
 
   return next;
@@ -368,10 +369,6 @@ export async function generateStructured<T>({
 
   for (const candidateModel of candidates) {
     try {
-      const reasoningCapable =
-        candidateModel.startsWith("openai/gpt-oss-") ||
-        candidateModel.startsWith("qwen/");
-
       const completion = await getGroqClient().chat.completions.create({
         model: candidateModel,
         messages: [
@@ -392,17 +389,8 @@ export async function generateStructured<T>({
             schema,
           },
         },
-        ...(reasoningCapable
-          ? candidateModel.startsWith("qwen/")
-            ? {
-                reasoning_effort: "none" as const,
-                include_reasoning: false,
-              }
-            : {
-                reasoning_effort: "low" as const,
-                include_reasoning: false,
-              }
-          : {}),
+        reasoning_effort: "low",
+        include_reasoning: false,
         temperature,
         max_completion_tokens: maxTokens,
       } as any);
