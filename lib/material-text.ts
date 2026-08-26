@@ -149,7 +149,7 @@ export function sampleMaterialText(text: string, maxCharacters = 16000) {
   const parts: string[] = [];
 
   for (let index = 0; index < segmentCount; index += 1) {
-    const ratio = segmentCount === 1 ? 0 : index / (segmentCount - 1);
+    const ratio = index / (segmentCount - 1);
     const start = Math.round(maxStart * ratio);
     const raw = cleaned.slice(start, start + segmentLength);
     const firstBreak = index === 0 ? -1 : raw.search(/[\n.!?]\s/);
