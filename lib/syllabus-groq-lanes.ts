@@ -1,6 +1,5 @@
 import { getGroqClient } from "./ai/groq";
 import {
-  buildSyllabusChunks,
   parseTaggedSyllabusChunk,
   type SyllabusAnalysis,
   type SyllabusPipelineChunk,
@@ -13,6 +12,8 @@ const SYLLABUS_MODEL_LANES = [
   "groq/compound-mini",
   "groq/compound",
 ] as const;
+
+const TARGET_CHUNK_CHARACTERS = 4800;
 
 const systemPrompt = `You extract structured facts from ONE CHUNK of a college syllabus.
 
@@ -101,6 +102,53 @@ function validTaggedOutput(content: string) {
   );
 }
 
+function buildRowPreservingChunks(pageTexts: string[]) {
+  const chunks: string[] = [];
+
+  pageTexts.forEach((rawPage, pageIndex) => {
+    const lines = rawPage
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .filter((line) => line.trim());
+    if (lines.length === 0) return;
+
+    let current = `===== PAGE ${pageIndex + 1} =====`;
+
+    const flush = () => {
+      if (current.trim() !== `===== PAGE ${pageIndex + 1} =====`) {
+        chunks.push(current.trim());
+      }
+      current = `===== PAGE ${pageIndex + 1} =====`;
+    };
+
+    for (const line of lines) {
+      if (line.length > TARGET_CHUNK_CHARACTERS) {
+        flush();
+        for (let start = 0; start < line.length; start += TARGET_CHUNK_CHARACTERS) {
+          chunks.push(
+            `===== PAGE ${pageIndex + 1} =====\n${line.slice(
+              start,
+              start + TARGET_CHUNK_CHARACTERS,
+            )}`,
+          );
+        }
+        continue;
+      }
+
+      const candidate = `${current}\n${line}`;
+      if (candidate.length > TARGET_CHUNK_CHARACTERS) {
+        flush();
+      }
+      current = `${current}\n${line}`;
+    }
+
+    flush();
+  });
+
+  return chunks;
+}
+
 async function analyzeChunk(model: string, chunk: string) {
   const completion = await getGroqClient().chat.completions.create({
     model,
@@ -150,7 +198,7 @@ export type SyllabusLaneResult = {
 export async function analyzeSyllabusAcrossLanes(
   pageTexts: string[],
 ): Promise<SyllabusLaneResult> {
-  const chunks = buildSyllabusChunks(pageTexts);
+  const chunks = buildRowPreservingChunks(pageTexts);
   const queue = chunks.map((text, index) => ({ index, text }));
   const analysesByIndex = new Map<number, SyllabusAnalysis>();
   const attemptsByIndex = new Map<number, number>();
@@ -180,9 +228,9 @@ export async function analyzeSyllabusAcrossLanes(
           error: message,
         });
 
-        // Put this small chunk back once so a healthy lane can claim it. The
-        // failing lane exits immediately, preventing repeated full-document
-        // retries from burning another model's daily token allowance.
+        // Requeue only this small chunk. The failing lane then exits, so a
+        // daily cap never causes CollegeOS to resend the entire syllabus to
+        // another model and burn thousands of duplicate tokens.
         queue.push(job);
         disabledModels.push({ model, error: message });
         if (shouldDisableLane(error)) return;
@@ -199,7 +247,9 @@ export async function analyzeSyllabusAcrossLanes(
     status: analysesByIndex.has(index) ? "ready" : "pending",
     memory: analysesByIndex.get(index) ?? null,
     attempts: attemptsByIndex.get(index) ?? 0,
-    lastError: analysesByIndex.has(index) ? null : errorsByIndex.get(index) ?? null,
+    lastError: analysesByIndex.has(index)
+      ? null
+      : errorsByIndex.get(index) ?? null,
   }));
 
   return {
@@ -209,7 +259,9 @@ export async function analyzeSyllabusAcrossLanes(
     pipelineChunks,
     modelsUsed: [...modelsUsed],
     disabledModels,
-    unresolvedChunkCount: pipelineChunks.filter((chunk) => chunk.status !== "ready").length,
+    unresolvedChunkCount: pipelineChunks.filter(
+      (chunk) => chunk.status !== "ready",
+    ).length,
     laneCount: SYLLABUS_MODEL_LANES.length,
   };
 }
