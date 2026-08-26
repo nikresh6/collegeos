@@ -1,116 +1,20 @@
 import { NextResponse } from "next/server";
-import { getGroqClient } from "../../../lib/ai/groq";
 import { extractPdfText } from "../../../lib/pdf";
 import { userContext } from "../../../lib/server-auth";
 import {
   deriveDeterministicSyllabusFacts,
   isSyllabusPipelineState,
   mergeSyllabusChunkAnalyses,
-  parseTaggedSyllabusChunk,
   type SyllabusAnalysis,
   type SyllabusPipelineState,
 } from "../../../lib/syllabus-analysis-pipeline";
+import { analyzeSyllabusAcrossLanes } from "../../../lib/syllabus-groq-lanes";
 import { reconcileSyllabusAnalysis } from "../../../lib/syllabus-reconcile";
+import { deriveDeterministicScheduleFacts } from "../../../lib/syllabus-schedule-fallback";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 240;
-
-const WHOLE_DOCUMENT_MODELS = [
-  "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "qwen/qwen3.6-27b",
-] as const;
-
-const systemPrompt = `You extract structured facts from a college syllabus.
-
-Use only information explicitly supported by the supplied syllabus. Do not invent course facts, dates, topics, policies, assignments, grade weights, or units.
-
-GRADING RULES:
-- GRADE_CATEGORY means a top-level gradebook category only.
-- Never output both an aggregate category and its component assessments as separate grade categories.
-- Example: if the syllabus says "Midterm Exams: 30% total; 15% each", output exactly one GRADE_CATEGORY for Midterm Exams at 30%. Midterm 1 and Midterm 2 are ASSESSMENT rows, not GRADE_CATEGORY rows.
-- Preserve every explicit letter-grade cutoff exactly. Never infer a standard grading scale.
-
-STRUCTURE RULES:
-- Preserve explicit unit/module/section hierarchies when the syllabus states them.
-- Otherwise emit scheduled class meetings as UNASSIGNED topics. The application will group them chronologically around exams after extraction.
-- For schedule tables, preserve one TOPIC per non-empty class content cell with the correct date, reading, and assignment.
-- Do not combine multiple dates or table cells into one topic.
-
-Extract course metadata, top-level grading categories, grade scale cutoffs, named assessments, important dates, policies, schedule notes, and scheduled topics. If credits are not explicit, use 0. Keep unsupported text fields empty. Return only the tagged format requested below.`;
-
-const taggedOutputPrompt = `OUTPUT FORMAT:
-Return ONLY lines in this tagged format. Use literal TAB characters between fields.
-
-COURSE<TAB>course code<TAB>course name<TAB>professor<TAB>term<TAB>credits
-GRADE_CATEGORY<TAB>name<TAB>weight percent number<TAB>notes
-GRADE_SCALE<TAB>letter grade<TAB>minimum percent<TAB>maximum percent<TAB>notes
-ASSESSMENT<TAB>name<TAB>type<TAB>date exactly as written<TAB>notes
-UNIT<TAB>name<TAB>description<TAB>explicit_unit or assessment_block<TAB>basis<TAB>assessment name<TAB>coverage
-TOPIC<TAB>unit name or UNASSIGNED<TAB>topic name<TAB>date<TAB>reading<TAB>assignment
-DATE<TAB>name<TAB>date exactly as written<TAB>type
-POLICY<TAB>category<TAB>summary
-SCHEDULE_NOTE<TAB>note
-WARNING<TAB>warning
-CONFIDENCE<TAB>0-100
-
-Rules:
-- Omit unsupported lines rather than inventing values.
-- COURSE and CONFIDENCE may appear once. Every other tag may repeat.
-- Use UNASSIGNED when a topic is explicit but there is no explicit unit hierarchy.
-- Every explicitly weighted top-level grading component must produce one GRADE_CATEGORY line.
-- Individual exams, quizzes, projects, or assignments that live inside an aggregate category must be ASSESSMENT rows, not duplicate GRADE_CATEGORY rows.
-- Every dated assessment or due item must produce an ASSESSMENT line and a DATE line.
-- For a weekly schedule table, emit one TOPIC for every non-empty class content cell using that cell's exact date.
-- Emit each alternative final-exam date as its own DATE line.
-- Do not output JSON, markdown, headings, commentary, or code fences.
-- Do not place TAB characters inside a field.`;
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error ?? "Unknown error");
-}
-
-function errorStatus(error: unknown) {
-  const status = Number((error as { status?: number })?.status);
-  return Number.isFinite(status) ? status : null;
-}
-
-function isRetryableModelError(error: unknown) {
-  const status = errorStatus(error);
-  const message = errorMessage(error).toLowerCase();
-  return (
-    status === 400 ||
-    status === 403 ||
-    status === 404 ||
-    status === 408 ||
-    status === 409 ||
-    status === 413 ||
-    status === 422 ||
-    status === 424 ||
-    status === 429 ||
-    (status !== null && status >= 500) ||
-    message.includes("rate limit") ||
-    message.includes("temporarily unavailable") ||
-    message.includes("capacity") ||
-    message.includes("timeout") ||
-    message.includes("model_not_found") ||
-    message.includes("does not exist") ||
-    message.includes("do not have access") ||
-    message.includes("truncated") ||
-    message.includes("tagged data")
-  );
-}
-
-function countVisibleScheduleDates(text: string) {
-  const patterns = [
-    /\b\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/gi,
-    /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}\b/gi,
-    /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g,
-  ];
-  const values = patterns.flatMap((pattern) => text.match(pattern) ?? []);
-  return new Set(values.map((value) => value.toLowerCase())).size;
-}
 
 function topicCount(analysis: SyllabusAnalysis) {
   return (
@@ -119,142 +23,15 @@ function topicCount(analysis: SyllabusAnalysis) {
   );
 }
 
-function analysisScore(analysis: SyllabusAnalysis) {
-  return (
-    topicCount(analysis) * 4 +
-    analysis.importantDates.length * 3 +
-    analysis.assessments.length * 3 +
-    analysis.gradingCategories.length * 3 +
-    analysis.gradingScale.length * 2 +
-    analysis.policies.length
-  );
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error ?? "Unknown error");
 }
 
-function outputBudget(model: string) {
-  if (model === "openai/gpt-oss-120b") return 3200;
-  return 2800;
-}
-
-async function analyzeWholeSyllabus(text: string) {
-  const visibleScheduleDates = countVisibleScheduleDates(text);
-  let best: { analysis: SyllabusAnalysis; model: string; score: number } | null =
-    null;
-  let lastError: unknown = null;
-
-  for (const model of WHOLE_DOCUMENT_MODELS) {
-    try {
-      console.log("Whole syllabus analysis starting:", {
-        model,
-        characters: text.length,
-      });
-
-      const completion = await getGroqClient().chat.completions.create({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: `${systemPrompt}\n\n${taggedOutputPrompt}`,
-          },
-          {
-            role: "user",
-            content: `FULL SYLLABUS:\n${text}`,
-          },
-        ],
-        temperature: model.startsWith("qwen/") ? 0.15 : 0.02,
-        max_completion_tokens: outputBudget(model),
-      });
-
-      const choice = completion.choices[0];
-      const content = choice?.message?.content?.trim();
-      if (!content) {
-        throw Object.assign(new Error("Groq returned an empty syllabus response."), {
-          status: 422,
-        });
-      }
-
-      if (choice.finish_reason === "length") {
-        throw Object.assign(
-          new Error("The syllabus response was truncated before completion."),
-          { status: 422 },
-        );
-      }
-
-      if (
-        !/^(?:COURSE|GRADE_CATEGORY|GRADE_SCALE|ASSESSMENT|UNIT|TOPIC|DATE|POLICY|SCHEDULE_NOTE|WARNING)\t/m.test(
-          content,
-        ) ||
-        !/^CONFIDENCE\t/m.test(content)
-      ) {
-        throw Object.assign(
-          new Error("The syllabus response did not contain usable tagged data."),
-          { status: 422 },
-        );
-      }
-
-      const analysis = parseTaggedSyllabusChunk(content);
-      const score = analysisScore(analysis);
-      if (!best || score > best.score) best = { analysis, model, score };
-
-      const topics = topicCount(analysis);
-      const scheduleLooksComplete =
-        visibleScheduleDates < 6 ||
-        topics >= Math.max(4, Math.floor(visibleScheduleDates * 0.45));
-
-      console.log("Whole syllabus analysis finished:", {
-        model,
-        topics,
-        importantDates: analysis.importantDates.length,
-        assessments: analysis.assessments.length,
-        gradingCategories: analysis.gradingCategories.length,
-        gradingScale: analysis.gradingScale.length,
-        score,
-        scheduleLooksComplete,
-      });
-
-      if (scheduleLooksComplete) return { analysis, model };
-    } catch (error) {
-      lastError = error;
-      console.warn("Whole syllabus model failed:", {
-        model,
-        status: errorStatus(error),
-        error: errorMessage(error),
-      });
-      if (!isRetryableModelError(error)) throw error;
-    }
+function appendWarning(analysis: SyllabusAnalysis, warning: string) {
+  const normalized = warning.toLowerCase();
+  if (!analysis.warnings.some((item) => item.toLowerCase() === normalized)) {
+    analysis.warnings.push(warning);
   }
-
-  if (best) {
-    best.analysis.warnings = [
-      ...best.analysis.warnings,
-      "Some schedule rows may need review.",
-    ];
-    return { analysis: best.analysis, model: best.model };
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Groq could not analyze the syllabus.");
-}
-
-function isGroqRateLimitError(message: string) {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("rate limit") ||
-    lower.includes("rate_limit") ||
-    lower.includes("429") ||
-    lower.includes("tokens per") ||
-    lower.includes("requests per")
-  );
-}
-
-function isGroqAuthError(message: string) {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("api key") ||
-    lower.includes("unauthorized") ||
-    lower.includes("authentication") ||
-    lower.includes("401")
-  );
 }
 
 export async function POST(request: Request) {
@@ -280,7 +57,8 @@ export async function POST(request: Request) {
         courseFileId?: unknown;
       };
       courseId = typeof body.courseId === "string" ? body.courseId : "";
-      courseFileId = typeof body.courseFileId === "string" ? body.courseFileId : "";
+      courseFileId =
+        typeof body.courseFileId === "string" ? body.courseFileId : "";
     } else {
       const formData = await request.formData();
       const uploaded = formData.get("file");
@@ -298,7 +76,7 @@ export async function POST(request: Request) {
 
     const { data: course, error: courseError } = await context.supabase
       .from("courses")
-      .select("id")
+      .select("id, code, name, professor, credits")
       .eq("id", courseId)
       .eq("user_id", context.user.id)
       .maybeSingle();
@@ -323,12 +101,15 @@ export async function POST(request: Request) {
         .limit(5);
       if (existingError) throw existingError;
 
-      const completed = existingRows?.find(
-        (row) =>
-          isSyllabusPipelineState(row.raw_analysis) &&
+      const completed = existingRows?.find((row) => {
+        if (!isSyllabusPipelineState(row.raw_analysis)) return false;
+        return (
           row.raw_analysis.status === "complete" &&
-          row.raw_analysis.result,
-      );
+          Boolean(row.raw_analysis.result) &&
+          row.raw_analysis.chunks.every((chunk) => chunk.status === "ready")
+        );
+      });
+
       if (
         completed &&
         isSyllabusPipelineState(completed.raw_analysis) &&
@@ -339,8 +120,9 @@ export async function POST(request: Request) {
           status: "complete",
           requestId,
           analysisId: completed.id,
-          provider: "groq",
+          provider: "saved",
           model: "saved",
+          modelLanes: 0,
           analysis: completed.raw_analysis.result,
         });
       }
@@ -362,9 +144,10 @@ export async function POST(request: Request) {
         );
       }
 
-      const { data: storedBlob, error: downloadError } = await context.supabase.storage
-        .from("course-files")
-        .download(storedFile.storage_path);
+      const { data: storedBlob, error: downloadError } =
+        await context.supabase.storage
+          .from("course-files")
+          .download(storedFile.storage_path);
       if (downloadError || !storedBlob) {
         throw downloadError ?? new Error("Could not download the stored syllabus.");
       }
@@ -402,7 +185,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { text, pageCount } = await extractPdfText(candidate);
+    const { text, pageCount, pageTexts } = await extractPdfText(candidate);
     if (text.replace(/\s/g, "").length < 150) {
       return NextResponse.json(
         {
@@ -417,41 +200,65 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("Simple syllabus analysis:", {
+    console.log("Syllabus analysis starting:", {
       fileName: candidate.name,
       pageCount,
       characters: text.length,
-      models: WHOLE_DOCUMENT_MODELS,
+      strategy: "deterministic-plus-five-lane-chunks",
     });
 
     const deterministicFacts = deriveDeterministicSyllabusFacts(text);
-    const aiResult = await analyzeWholeSyllabus(text);
-    const merged = mergeSyllabusChunkAnalyses([
+    const scheduleFacts = deriveDeterministicScheduleFacts(text);
+    const deterministicCombined = mergeSyllabusChunkAnalyses([
       deterministicFacts,
-      aiResult.analysis,
+      scheduleFacts,
+    ]);
+
+    // Groq is enrichment, not a hard dependency. Each model receives only a
+    // small page-sized chunk. A rate-limited model exits its lane and healthy
+    // lanes claim the remaining chunks. If all lanes are unavailable, the
+    // deterministic extraction below still produces a reviewable course.
+    const laneResult = await analyzeSyllabusAcrossLanes(pageTexts);
+
+    const merged = mergeSyllabusChunkAnalyses([
+      deterministicCombined,
+      ...laneResult.analyses,
     ]);
     const result = reconcileSyllabusAnalysis({
       analysis: merged,
-      deterministicFacts,
+      deterministicFacts: deterministicCombined,
       sourceText: text,
     });
+
+    result.courseInfo.courseCode ||= course.code ?? "";
+    result.courseInfo.courseName ||= course.name ?? "";
+    result.courseInfo.professor ||= course.professor ?? "";
+    if (!result.courseInfo.credits && Number(course.credits) > 0) {
+      result.courseInfo.credits = Number(course.credits);
+    }
+
+    if (laneResult.unresolvedChunkCount > 0) {
+      appendWarning(
+        result,
+        `${laneResult.unresolvedChunkCount} syllabus chunk(s) could not be AI-enriched because the available Groq lanes were exhausted or unavailable. Explicit grading, dates, and schedule rows were still extracted deterministically. Re-analyze later to enrich any missing details.`,
+      );
+      if (result.overallConfidence > 82) result.overallConfidence = 82;
+    }
+
+    if (laneResult.modelsUsed.length === 0) {
+      appendWarning(
+        result,
+        "Groq enrichment was unavailable for this run. CollegeOS completed the syllabus foundation from deterministic PDF extraction instead of failing the upload.",
+      );
+    }
 
     const pipeline: SyllabusPipelineState = {
       pipelineVersion: 2,
       status: "complete",
       fileName: candidate.name,
       pageCount,
-      chunks: [
-        {
-          index: 0,
-          text,
-          status: "ready",
-          memory: aiResult.analysis,
-          attempts: 1,
-          lastError: null,
-        },
-      ],
-      deterministicFacts,
+      chunks: laneResult.pipelineChunks,
+      deterministicFacts: deterministicCombined,
       result,
     };
 
@@ -482,9 +289,11 @@ export async function POST(request: Request) {
       .single();
     if (insertError) throw insertError;
 
-    console.log("Simple syllabus analysis complete:", {
+    console.log("Syllabus analysis complete:", {
       analysisId: inserted.id,
-      model: aiResult.model,
+      modelsUsed: laneResult.modelsUsed,
+      disabledModels: laneResult.disabledModels.map((item) => item.model),
+      unresolvedChunks: laneResult.unresolvedChunkCount,
       topics: topicCount(result),
       units: result.units.length,
       importantDates: result.importantDates.length,
@@ -498,51 +307,25 @@ export async function POST(request: Request) {
       status: "complete",
       requestId,
       analysisId: inserted.id,
-      provider: "groq",
-      model: aiResult.model,
-      modelLanes: 1,
+      provider:
+        laneResult.modelsUsed.length > 0 ? "groq+deterministic" : "deterministic",
+      model:
+        laneResult.modelsUsed.length > 0
+          ? laneResult.modelsUsed.join(",")
+          : "deterministic-only",
+      modelLanes: laneResult.laneCount,
+      unresolvedChunks: laneResult.unresolvedChunkCount,
       analysis: result,
     });
   } catch (error) {
-    console.error("Groq syllabus analysis failed:", error);
-
-    const message =
-      error instanceof Error ? error.message : "Groq could not analyze the syllabus.";
-
-    if (isGroqRateLimitError(message)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          requestId,
-          code: "GROQ_RATE_LIMITED",
-          retryable: true,
-          retryAfterMs: 2000,
-          error:
-            "The available Groq models are temporarily rate limited. Please retry shortly.",
-        },
-        { status: 429, headers: { "Retry-After": "2" } },
-      );
-    }
-
-    if (isGroqAuthError(message)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          requestId,
-          code: "GROQ_AUTH_FAILED",
-          retryable: false,
-          error:
-            "Groq authentication failed. Check GROQ_API_KEY in the deployed server environment.",
-        },
-        { status: 500 },
-      );
-    }
+    console.error("Syllabus analysis failed:", error);
+    const message = errorMessage(error);
 
     return NextResponse.json(
       {
         ok: false,
         requestId,
-        code: "GROQ_ANALYSIS_FAILED",
+        code: "SYLLABUS_ANALYSIS_FAILED",
         retryable: true,
         retryAfterMs: 2000,
         error: message,
