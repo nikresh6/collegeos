@@ -125,26 +125,45 @@ export async function extractMaterialText(file: File) {
 }
 
 export function sampleMaterialText(text: string, maxCharacters = 16000) {
-  const cleaned = text.replace(/\u0000/g, "").trim();
+  const cleaned = text
+    .replace(/\u0000/g, "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
 
-  if (cleaned.length <= maxCharacters) {
+  const expandedBudget = Math.max(
+    maxCharacters,
+    Math.min(50_000, maxCharacters * 5),
+  );
+
+  if (cleaned.length <= expandedBudget) {
     return cleaned;
   }
 
-  const firstLength = Math.floor(maxCharacters * 0.4);
-  const middleLength = Math.floor(maxCharacters * 0.3);
-  const lastLength = maxCharacters - firstLength - middleLength;
-
-  const middleStart = Math.max(
-    firstLength,
-    Math.floor(cleaned.length / 2 - middleLength / 2),
+  const segmentCount = 10;
+  const separatorReserve = 48 * (segmentCount - 1);
+  const segmentLength = Math.max(
+    900,
+    Math.floor((expandedBudget - separatorReserve) / segmentCount),
   );
+  const maxStart = Math.max(0, cleaned.length - segmentLength);
+  const parts: string[] = [];
 
-  return [
-    cleaned.slice(0, firstLength),
-    "\n\n===== MIDDLE SAMPLE =====\n\n",
-    cleaned.slice(middleStart, middleStart + middleLength),
-    "\n\n===== END SAMPLE =====\n\n",
-    cleaned.slice(-lastLength),
-  ].join("");
+  for (let index = 0; index < segmentCount; index += 1) {
+    const ratio = segmentCount === 1 ? 0 : index / (segmentCount - 1);
+    const start = Math.round(maxStart * ratio);
+    const raw = cleaned.slice(start, start + segmentLength);
+    const firstBreak = index === 0 ? -1 : raw.search(/[\n.!?]\s/);
+    const segment =
+      firstBreak >= 0 && firstBreak < 180
+        ? raw.slice(firstBreak + 1).trim()
+        : raw.trim();
+
+    if (segment) {
+      parts.push(
+        `===== DOCUMENT SAMPLE ${index + 1} OF ${segmentCount} =====\n${segment}`,
+      );
+    }
+  }
+
+  return parts.join("\n\n").slice(0, expandedBudget + 1200);
 }
