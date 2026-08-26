@@ -10,6 +10,7 @@ import {
   type SyllabusAnalysis,
   type SyllabusPipelineState,
 } from "../../../lib/syllabus-analysis-pipeline";
+import { reconcileSyllabusAnalysis } from "../../../lib/syllabus-reconcile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,11 +26,19 @@ const systemPrompt = `You extract structured facts from a college syllabus.
 
 Use only information explicitly supported by the supplied syllabus. Do not invent course facts, dates, topics, policies, assignments, grade weights, or units.
 
-Preserve explicit topic and lecture titles as written. If the syllabus has an explicit unit, module, section, or block hierarchy, preserve it and use basisType explicit_unit. If there is no explicit hierarchy but an exam clearly defines a range of material, an assessment_block may be used. Otherwise keep explicit topics unassigned.
+GRADING RULES:
+- GRADE_CATEGORY means a top-level gradebook category only.
+- Never output both an aggregate category and its component assessments as separate grade categories.
+- Example: if the syllabus says "Midterm Exams: 30% total; 15% each", output exactly one GRADE_CATEGORY for Midterm Exams at 30%. Midterm 1 and Midterm 2 are ASSESSMENT rows, not GRADE_CATEGORY rows.
+- Preserve every explicit letter-grade cutoff exactly. Never infer a standard grading scale.
 
-Extract all explicit course metadata, grading categories and weights, grading scale cutoffs, named assessments, important dates, policies, schedule notes, and scheduled topics. For schedule tables, preserve each class meeting as a separate topic with its date, reading, and assignment when available. Preserve assignment due dates separately when they differ from lecture dates.
+STRUCTURE RULES:
+- Preserve explicit unit/module/section hierarchies when the syllabus states them.
+- Otherwise emit scheduled class meetings as UNASSIGNED topics. The application will group them chronologically around exams after extraction.
+- For schedule tables, preserve one TOPIC per non-empty class content cell with the correct date, reading, and assignment.
+- Do not combine multiple dates or table cells into one topic.
 
-Never infer a standard grading scale. If credits are not explicit, use 0. Keep unsupported text fields empty. Return only the tagged format requested below.`;
+Extract course metadata, top-level grading categories, grade scale cutoffs, named assessments, important dates, policies, schedule notes, and scheduled topics. If credits are not explicit, use 0. Keep unsupported text fields empty. Return only the tagged format requested below.`;
 
 const taggedOutputPrompt = `OUTPUT FORMAT:
 Return ONLY lines in this tagged format. Use literal TAB characters between fields.
@@ -49,19 +58,17 @@ CONFIDENCE<TAB>0-100
 Rules:
 - Omit unsupported lines rather than inventing values.
 - COURSE and CONFIDENCE may appear once. Every other tag may repeat.
-- Use UNASSIGNED only when a topic is explicit but no unit is supported.
-- Every explicitly weighted grading component must produce a GRADE_CATEGORY line.
+- Use UNASSIGNED when a topic is explicit but there is no explicit unit hierarchy.
+- Every explicitly weighted top-level grading component must produce one GRADE_CATEGORY line.
+- Individual exams, quizzes, projects, or assignments that live inside an aggregate category must be ASSESSMENT rows, not duplicate GRADE_CATEGORY rows.
 - Every dated assessment or due item must produce an ASSESSMENT line and a DATE line.
 - For a weekly schedule table, emit one TOPIC for every non-empty class content cell using that cell's exact date.
-- Do not combine several class meetings into one TOPIC.
 - Emit each alternative final-exam date as its own DATE line.
 - Do not output JSON, markdown, headings, commentary, or code fences.
 - Do not place TAB characters inside a field.`;
 
 function errorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : String(error ?? "Unknown error");
+  return error instanceof Error ? error.message : String(error ?? "Unknown error");
 }
 
 function errorStatus(error: unknown) {
@@ -78,6 +85,7 @@ function isRetryableModelError(error: unknown) {
     status === 404 ||
     status === 408 ||
     status === 409 ||
+    status === 413 ||
     status === 422 ||
     status === 424 ||
     status === 429 ||
@@ -122,6 +130,11 @@ function analysisScore(analysis: SyllabusAnalysis) {
   );
 }
 
+function outputBudget(model: string) {
+  if (model === "openai/gpt-oss-120b") return 3200;
+  return 2800;
+}
+
 async function analyzeWholeSyllabus(text: string) {
   const visibleScheduleDates = countVisibleScheduleDates(text);
   let best: { analysis: SyllabusAnalysis; model: string; score: number } | null =
@@ -147,8 +160,8 @@ async function analyzeWholeSyllabus(text: string) {
             content: `FULL SYLLABUS:\n${text}`,
           },
         ],
-        temperature: model.startsWith("qwen/") ? 0.2 : 0.05,
-        max_completion_tokens: 6500,
+        temperature: model.startsWith("qwen/") ? 0.15 : 0.02,
+        max_completion_tokens: outputBudget(model),
       });
 
       const choice = completion.choices[0];
@@ -180,13 +193,12 @@ async function analyzeWholeSyllabus(text: string) {
 
       const analysis = parseTaggedSyllabusChunk(content);
       const score = analysisScore(analysis);
-      if (!best || score > best.score) {
-        best = { analysis, model, score };
-      }
+      if (!best || score > best.score) best = { analysis, model, score };
 
       const topics = topicCount(analysis);
       const scheduleLooksComplete =
-        visibleScheduleDates < 6 || topics >= Math.max(4, Math.floor(visibleScheduleDates * 0.45));
+        visibleScheduleDates < 6 ||
+        topics >= Math.max(4, Math.floor(visibleScheduleDates * 0.45));
 
       console.log("Whole syllabus analysis finished:", {
         model,
@@ -194,13 +206,12 @@ async function analyzeWholeSyllabus(text: string) {
         importantDates: analysis.importantDates.length,
         assessments: analysis.assessments.length,
         gradingCategories: analysis.gradingCategories.length,
+        gradingScale: analysis.gradingScale.length,
         score,
         scheduleLooksComplete,
       });
 
-      if (scheduleLooksComplete) {
-        return { analysis, model };
-      }
+      if (scheduleLooksComplete) return { analysis, model };
     } catch (error) {
       lastError = error;
       console.warn("Whole syllabus model failed:", {
@@ -215,7 +226,7 @@ async function analyzeWholeSyllabus(text: string) {
   if (best) {
     best.analysis.warnings = [
       ...best.analysis.warnings,
-      "The syllabus was extracted, but some schedule rows may need review.",
+      "Some schedule rows may need review.",
     ];
     return { analysis: best.analysis, model: best.model };
   }
@@ -269,8 +280,7 @@ export async function POST(request: Request) {
         courseFileId?: unknown;
       };
       courseId = typeof body.courseId === "string" ? body.courseId : "";
-      courseFileId =
-        typeof body.courseFileId === "string" ? body.courseFileId : "";
+      courseFileId = typeof body.courseFileId === "string" ? body.courseFileId : "";
     } else {
       const formData = await request.formData();
       const uploaded = formData.get("file");
@@ -302,16 +312,15 @@ export async function POST(request: Request) {
     }
 
     if (courseFileId) {
-      const { data: existingRows, error: existingError } =
-        await context.supabase
-          .from("syllabus_analyses")
-          .select("id, raw_analysis")
-          .eq("course_id", courseId)
-          .eq("course_file_id", courseFileId)
-          .eq("user_id", context.user.id)
-          .eq("status", "draft")
-          .order("created_at", { ascending: false })
-          .limit(5);
+      const { data: existingRows, error: existingError } = await context.supabase
+        .from("syllabus_analyses")
+        .select("id, raw_analysis")
+        .eq("course_id", courseId)
+        .eq("course_file_id", courseFileId)
+        .eq("user_id", context.user.id)
+        .eq("status", "draft")
+        .order("created_at", { ascending: false })
+        .limit(5);
       if (existingError) throw existingError;
 
       const completed = existingRows?.find(
@@ -336,15 +345,14 @@ export async function POST(request: Request) {
         });
       }
 
-      const { data: storedFile, error: storedFileError } =
-        await context.supabase
-          .from("course_files")
-          .select("id, file_name, storage_path, mime_type, size_bytes")
-          .eq("id", courseFileId)
-          .eq("course_id", courseId)
-          .eq("user_id", context.user.id)
-          .eq("material_type", "syllabus")
-          .maybeSingle();
+      const { data: storedFile, error: storedFileError } = await context.supabase
+        .from("course_files")
+        .select("id, file_name, storage_path, mime_type, size_bytes")
+        .eq("id", courseFileId)
+        .eq("course_id", courseId)
+        .eq("user_id", context.user.id)
+        .eq("material_type", "syllabus")
+        .maybeSingle();
 
       if (storedFileError) throw storedFileError;
       if (!storedFile) {
@@ -354,10 +362,9 @@ export async function POST(request: Request) {
         );
       }
 
-      const { data: storedBlob, error: downloadError } =
-        await context.supabase.storage
-          .from("course-files")
-          .download(storedFile.storage_path);
+      const { data: storedBlob, error: downloadError } = await context.supabase.storage
+        .from("course-files")
+        .download(storedFile.storage_path);
       if (downloadError || !storedBlob) {
         throw downloadError ?? new Error("Could not download the stored syllabus.");
       }
@@ -419,10 +426,15 @@ export async function POST(request: Request) {
 
     const deterministicFacts = deriveDeterministicSyllabusFacts(text);
     const aiResult = await analyzeWholeSyllabus(text);
-    const result = mergeSyllabusChunkAnalyses([
+    const merged = mergeSyllabusChunkAnalyses([
       deterministicFacts,
       aiResult.analysis,
     ]);
+    const result = reconcileSyllabusAnalysis({
+      analysis: merged,
+      deterministicFacts,
+      sourceText: text,
+    });
 
     const pipeline: SyllabusPipelineState = {
       pipelineVersion: 2,
@@ -474,9 +486,11 @@ export async function POST(request: Request) {
       analysisId: inserted.id,
       model: aiResult.model,
       topics: topicCount(result),
+      units: result.units.length,
       importantDates: result.importantDates.length,
       assessments: result.assessments.length,
       gradingCategories: result.gradingCategories.length,
+      gradingScale: result.gradingScale.length,
     });
 
     return NextResponse.json({
@@ -493,9 +507,7 @@ export async function POST(request: Request) {
     console.error("Groq syllabus analysis failed:", error);
 
     const message =
-      error instanceof Error
-        ? error.message
-        : "Groq could not analyze the syllabus.";
+      error instanceof Error ? error.message : "Groq could not analyze the syllabus.";
 
     if (isGroqRateLimitError(message)) {
       return NextResponse.json(
@@ -504,7 +516,7 @@ export async function POST(request: Request) {
           requestId,
           code: "GROQ_RATE_LIMITED",
           retryable: true,
-          retryAfterMs: 1500,
+          retryAfterMs: 2000,
           error:
             "The available Groq models are temporarily rate limited. Please retry shortly.",
         },
@@ -532,7 +544,7 @@ export async function POST(request: Request) {
         requestId,
         code: "GROQ_ANALYSIS_FAILED",
         retryable: true,
-        retryAfterMs: 1500,
+        retryAfterMs: 2000,
         error: message,
       },
       { status: 500 },
