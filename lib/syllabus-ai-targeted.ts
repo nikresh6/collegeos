@@ -123,7 +123,7 @@ function hasVisibleSchedule(sourceText: string) {
 }
 
 function hasVisibleMajorAssessments(sourceText: string) {
-  return /\b(?:midterm|final\s+exam|exam\s+date|project\s+presentation|\btest\s*\d*)\b/i.test(
+  return /\b(?:midterm|final\s+exam|exam\s+date|project\s+presentation|test\s*\d*)\b/i.test(
     sourceText,
   );
 }
@@ -136,6 +136,108 @@ function usesWeekBucketsAsUnits(analysis: SyllabusAnalysis) {
   if (analysis.units.length < 2) return false;
   const weekUnits = analysis.units.filter((unit) => isWeekBucketName(unit.name));
   return weekUnits.length >= 2 && weekUnits.length / analysis.units.length >= 0.5;
+}
+
+function normalizeAssessmentName(value: string) {
+  const midterm = value.match(/\bmidterm\s*(\d+)\b/i);
+  if (midterm) return `Midterm ${midterm[1]}`;
+
+  const test = value.match(/\btest\s*(\d+)\b/i);
+  if (test) return `Test ${test[1]}`;
+
+  if (/\bfinal\s+exam\b/i.test(value)) return "Final Exam";
+  return value.trim();
+}
+
+function majorAssessmentNames(analysis: SyllabusAnalysis) {
+  const names: string[] = [];
+
+  for (const assessment of analysis.assessments) {
+    const evidence = `${assessment.name} ${assessment.type}`;
+    if (!/\b(?:midterm\s*\d+|final\s+exam|test\s*\d+)\b/i.test(evidence)) {
+      continue;
+    }
+
+    const normalized = normalizeAssessmentName(assessment.name || assessment.type);
+    if (normalized && !names.some((name) => name.toLowerCase() === normalized.toLowerCase())) {
+      names.push(normalized);
+    }
+  }
+
+  return names;
+}
+
+function topicMatchesAssessmentBoundary(topicName: string, assessmentName: string) {
+  const normalizedTopic = normalizeAssessmentName(topicName).toLowerCase();
+  const normalizedAssessment = normalizeAssessmentName(assessmentName).toLowerCase();
+
+  if (normalizedAssessment === "final exam") {
+    return /\bfinal\s+exam\b/i.test(topicName);
+  }
+
+  return normalizedTopic === normalizedAssessment;
+}
+
+function collapseWeekBucketsIntoAssessmentBlocks(analysis: SyllabusAnalysis) {
+  if (!usesWeekBucketsAsUnits(analysis)) return;
+
+  const assessments = majorAssessmentNames(analysis);
+  if (assessments.length < 2) return;
+
+  const flattenedTopics = analysis.units.flatMap((unit) => unit.topics);
+  const blocks: SyllabusAnalysis["units"] = [];
+  let currentTopics: SyllabusAnalysis["units"][number]["topics"] = [];
+  let assessmentIndex = 0;
+
+  const pushBlock = (assessmentName: string) => {
+    if (currentTopics.length === 0) return;
+
+    blocks.push({
+      name: assessmentName,
+      description: `Course content leading up to ${assessmentName}.`,
+      basisType: "assessment_block",
+      basis: "Major assessment boundary in the syllabus schedule",
+      assessmentName,
+      coverage: "",
+      topics: currentTopics,
+    });
+    currentTopics = [];
+  };
+
+  for (const topic of flattenedTopics) {
+    const nextAssessment = assessments[assessmentIndex];
+
+    if (
+      nextAssessment &&
+      topicMatchesAssessmentBoundary(topic.name, nextAssessment)
+    ) {
+      pushBlock(nextAssessment);
+      assessmentIndex += 1;
+      continue;
+    }
+
+    currentTopics.push(topic);
+  }
+
+  if (currentTopics.length > 0) {
+    const remainingAssessment =
+      assessments[assessmentIndex] ?? assessments[assessments.length - 1];
+    pushBlock(remainingAssessment);
+  }
+
+  const preservedTopicCount = blocks.reduce(
+    (sum, unit) => sum + unit.topics.length,
+    0,
+  );
+  const removedAssessmentRows = flattenedTopics.length - preservedTopicCount;
+
+  if (
+    blocks.length >= 2 &&
+    removedAssessmentRows >= 1 &&
+    blocks.every((block) => !isWeekBucketName(block.name))
+  ) {
+    analysis.units = blocks;
+  }
 }
 
 function splitPages(sourceText: string) {
@@ -383,6 +485,7 @@ export async function analyzeSyllabusWithTargetedAI(
       }
 
       const analysis = parseTaggedSyllabusChunk(content);
+      collapseWeekBucketsIntoAssessmentBlocks(analysis);
       validateAnalysisExceptGradeScale(analysis, sourceText);
 
       let gradeScaleModel = "";
