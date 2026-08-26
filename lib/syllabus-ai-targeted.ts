@@ -5,11 +5,17 @@ import {
   type SyllabusPipelineChunk,
 } from "./syllabus-analysis-pipeline";
 
-export const TARGETED_SYLLABUS_MODE = "ai-whole-document-v2";
+export const TARGETED_SYLLABUS_MODE = "ai-whole-document-v3";
 
 const MODELS = [
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
+  "qwen/qwen3.6-27b",
+] as const;
+
+const GRADE_SCALE_MODELS = [
+  "openai/gpt-oss-20b",
+  "openai/gpt-oss-120b",
   "qwen/qwen3.6-27b",
 ] as const;
 
@@ -57,6 +63,20 @@ CONFIDENCE<TAB>0-100
 
 Omit unsupported lines. Do not output JSON, markdown, headings, commentary, or code fences.`;
 
+const gradeScalePrompt = `Read the supplied syllabus grading evidence and extract ONLY the explicitly stated letter-grade cutoff scale.
+Use only the supplied text. Do not assume a standard scale and do not calculate missing cutoffs.
+
+Important:
+- Return EVERY stated letter grade, including plus and minus grades.
+- Convert a printed range to minimum then maximum. Example: "A 100-93" becomes minimum 93 and maximum 100.
+- Preserve decimals exactly, such as 92.9, 89.9, and 59.9.
+- A grading scale printed across multiple columns or separated by vertical bars is still one scale. Read every entry.
+- Do not return grading-category weights, assessments, topics, dates, or commentary.
+
+Return ONLY these tagged lines using literal TAB characters:
+GRADE_SCALE<TAB>letter grade<TAB>minimum percent<TAB>maximum percent<TAB>notes
+CONFIDENCE<TAB>0-100`;
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error ?? "Unknown error");
 }
@@ -93,17 +113,51 @@ function hasVisibleMajorAssessments(sourceText: string) {
   );
 }
 
-function validateAnalysis(analysis: SyllabusAnalysis, sourceText: string) {
+function splitPages(sourceText: string) {
+  const matches = [...sourceText.matchAll(/===== PAGE (\d+) =====/g)];
+  if (matches.length === 0) return [{ pageNumber: 1, text: sourceText }];
+
+  return matches.map((match, index) => {
+    const start = match.index ?? 0;
+    const end = matches[index + 1]?.index ?? sourceText.length;
+    return {
+      pageNumber: Number(match[1]),
+      text: sourceText.slice(start, end).trim(),
+    };
+  });
+}
+
+function buildGradeScaleEvidence(sourceText: string) {
+  const pages = splitPages(sourceText);
+  const directIndexes = pages
+    .map((page, index) => ({ page, index }))
+    .filter(({ page }) => /grading\s+scale|evaluation\s*&?\s*grading/i.test(page.text))
+    .map(({ index }) => index);
+
+  if (directIndexes.length === 0) {
+    return sourceText.slice(0, Math.min(sourceText.length, 5000));
+  }
+
+  const selected = new Set<number>();
+  for (const index of directIndexes) {
+    selected.add(index);
+    if (index > 0) selected.add(index - 1);
+    if (index + 1 < pages.length) selected.add(index + 1);
+  }
+
+  return [...selected]
+    .sort((a, b) => a - b)
+    .map((index) => pages[index].text)
+    .join("\n\n");
+}
+
+function validateAnalysisExceptGradeScale(
+  analysis: SyllabusAnalysis,
+  sourceText: string,
+) {
   if (hasVisibleGradingWeights(sourceText) && analysis.gradingCategories.length === 0) {
     throw Object.assign(
       new Error("AI missed an explicitly stated grading-weight section."),
-      { status: 422 },
-    );
-  }
-
-  if (hasVisibleGradeScale(sourceText) && analysis.gradingScale.length < 5) {
-    throw Object.assign(
-      new Error("AI missed an explicitly stated letter-grade scale."),
       { status: 422 },
     );
   }
@@ -154,6 +208,103 @@ function buildRequest(model: string, sourceText: string) {
   return base;
 }
 
+function buildGradeScaleRequest(model: string, evidenceText: string) {
+  const base = {
+    model,
+    messages: [
+      { role: "system" as const, content: gradeScalePrompt },
+      {
+        role: "user" as const,
+        content: `SYLLABUS GRADING EVIDENCE:\n${evidenceText}`,
+      },
+    ],
+    temperature: 0,
+    max_completion_tokens: 650,
+  };
+
+  if (model.startsWith("openai/gpt-oss-")) {
+    return {
+      ...base,
+      reasoning_effort: "low" as const,
+    };
+  }
+
+  return base;
+}
+
+async function recoverGradeScale(sourceText: string) {
+  const evidenceText = buildGradeScaleEvidence(sourceText);
+  const failures: Array<{ model: string; error: string; status: number | null }> = [];
+
+  for (const model of GRADE_SCALE_MODELS) {
+    try {
+      console.log("Focused grade-scale AI attempt:", {
+        model,
+        evidenceCharacters: evidenceText.length,
+        maxCompletionTokens: 650,
+      });
+
+      const completion = await getGroqClient().chat.completions.create(
+        buildGradeScaleRequest(model, evidenceText),
+      );
+      const choice = completion.choices[0];
+      const content = choice?.message?.content?.trim();
+
+      if (!content) {
+        throw Object.assign(new Error("AI returned an empty grade-scale extraction."), {
+          status: 422,
+        });
+      }
+      if (choice.finish_reason === "length") {
+        throw Object.assign(new Error("AI grade-scale extraction was truncated."), {
+          status: 422,
+        });
+      }
+      if (!/^CONFIDENCE\t/m.test(content)) {
+        throw Object.assign(
+          new Error("AI grade-scale extraction did not follow the tagged format."),
+          { status: 422 },
+        );
+      }
+
+      const analysis = parseTaggedSyllabusChunk(content);
+      if (analysis.gradingScale.length < 5) {
+        throw Object.assign(
+          new Error("AI did not return the complete visible letter-grade scale."),
+          { status: 422 },
+        );
+      }
+
+      console.log("Focused grade-scale AI recovered scale:", {
+        model,
+        rows: analysis.gradingScale.length,
+      });
+
+      return {
+        gradingScale: analysis.gradingScale,
+        model,
+        failures,
+      };
+    } catch (error) {
+      const failure = {
+        model,
+        error: errorMessage(error),
+        status: errorStatus(error),
+      };
+      failures.push(failure);
+      console.warn("Focused grade-scale AI attempt failed:", failure);
+    }
+  }
+
+  const last = failures[failures.length - 1];
+  throw Object.assign(
+    new Error(
+      `AI could not recover the explicitly stated grading scale. ${last?.error ?? "No model was available."}`,
+    ),
+    { status: last?.status ?? 503, failures },
+  );
+}
+
 export type TargetedSyllabusAIResult = {
   analysis: SyllabusAnalysis;
   pipelineChunks: SyllabusPipelineChunk[];
@@ -198,22 +349,58 @@ export async function analyzeSyllabusWithTargetedAI(
       }
 
       const analysis = parseTaggedSyllabusChunk(content);
-      validateAnalysis(analysis, sourceText);
+      validateAnalysisExceptGradeScale(analysis, sourceText);
+
+      let gradeScaleModel = "";
+      let gradeScaleAttempts = 0;
+      if (hasVisibleGradeScale(sourceText) && analysis.gradingScale.length < 5) {
+        const recovered = await recoverGradeScale(sourceText);
+        analysis.gradingScale = recovered.gradingScale;
+        gradeScaleModel = recovered.model;
+        gradeScaleAttempts = recovered.failures.length + 1;
+      }
+
+      const modelsUsed = [...new Set([model, gradeScaleModel].filter(Boolean))];
+      const pipelineChunks: SyllabusPipelineChunk[] = [
+        {
+          index: 0,
+          text: "Whole-document AI syllabus extraction",
+          status: "ready",
+          memory: analysis,
+          attempts: failures.length + 1,
+          lastError: null,
+        },
+      ];
+
+      if (gradeScaleModel) {
+        pipelineChunks.push({
+          index: 1,
+          text: "Focused AI grading-scale verification",
+          status: "ready",
+          memory: {
+            ...analysis,
+            gradingCategories: [],
+            assessments: [],
+            units: [],
+            unassignedTopics: [],
+            importantDates: [],
+            policies: [],
+            scheduleNotes: [],
+            warnings: [],
+          },
+          attempts: gradeScaleAttempts,
+          lastError: null,
+        });
+      }
 
       return {
         analysis,
-        pipelineChunks: [
-          {
-            index: 0,
-            text: "Whole-document AI syllabus extraction",
-            status: "ready",
-            memory: analysis,
-            attempts: failures.length + 1,
-            lastError: null,
-          },
-        ],
-        modelsUsed: [model],
-        taskModels: { whole_document: model },
+        pipelineChunks,
+        modelsUsed,
+        taskModels: {
+          whole_document: model,
+          ...(gradeScaleModel ? { grade_scale_verification: gradeScaleModel } : {}),
+        },
       };
     } catch (error) {
       const failure = {
