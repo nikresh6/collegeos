@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  groq,
-  GROQ_MODELS,
-} from "../../../../lib/ai/groq";
+import { groq } from "../../../../lib/ai/groq";
+import { noteContentToPlainText } from "../../../../lib/note-content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const ACCURATE_TRANSCRIPTION_MODEL =
+  process.env.GROQ_TRANSCRIPTION_MODEL ||
+  "whisper-large-v3";
 
 type TranscriptSegment = {
   start?: number;
@@ -41,8 +43,7 @@ function createUserClient(accessToken: string) {
 }
 
 function bearerToken(request: Request) {
-  const authorization =
-    request.headers.get("authorization") ?? "";
+  const authorization = request.headers.get("authorization") ?? "";
 
   return authorization.startsWith("Bearer ")
     ? authorization.slice("Bearer ".length)
@@ -93,6 +94,12 @@ function retryAfterSeconds(error: unknown) {
   return Number.isFinite(parsed) && parsed > 0
     ? Math.min(90, Math.ceil(parsed))
     : 15;
+}
+
+function compactVocabulary(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function POST(request: Request) {
@@ -167,6 +174,8 @@ export async function POST(request: Request) {
     const [
       { data: course, error: courseError },
       { data: unit, error: unitError },
+      { data: topicRows, error: topicsError },
+      { data: noteRows, error: notesError },
     ] = await Promise.all([
       supabase
         .from("courses")
@@ -183,10 +192,24 @@ export async function POST(request: Request) {
             data: null,
             error: null,
           }),
+      supabase
+        .from("course_topics")
+        .select("name")
+        .eq("course_id", lecture.course_id)
+        .order("position", { ascending: true })
+        .limit(18),
+      supabase
+        .from("notes")
+        .select("raw_content")
+        .eq("lecture_id", lectureId)
+        .order("updated_at", { ascending: false })
+        .limit(4),
     ]);
 
     if (courseError) throw courseError;
     if (unitError) throw unitError;
+    if (topicsError) throw topicsError;
+    if (notesError) throw notesError;
 
     const {
       data: signed,
@@ -228,20 +251,48 @@ export async function POST(request: Request) {
       }
     }
 
+    const topicVocabulary = compactVocabulary(
+      (topicRows ?? [])
+        .map((topic) => topic.name)
+        .filter(Boolean)
+        .join(", "),
+    );
+
+    const studentVocabulary = compactVocabulary(
+      (noteRows ?? [])
+        .map((note) =>
+          typeof note.raw_content === "string"
+            ? noteContentToPlainText(note.raw_content)
+            : "",
+        )
+        .filter(Boolean)
+        .join(" "),
+    );
+
     const contextPrompt = [
-      course?.code,
-      course?.name,
-      unit?.name,
-      lecture.title,
+      "College lecture transcription with technical academic vocabulary.",
+      course?.code || course?.name
+        ? `Course: ${[course?.code, course?.name]
+            .filter(Boolean)
+            .join(" ")}.`
+        : "",
+      unit?.name ? `Unit: ${unit.name}.` : "",
+      topicVocabulary
+        ? `Likely technical terms: ${topicVocabulary}.`
+        : "",
+      studentVocabulary
+        ? `Student shorthand and spellings from this lecture: ${studentVocabulary}.`
+        : "",
+      "Preserve mathematical symbols, variable names, and technical terminology as literally as the audio supports.",
     ]
       .filter(Boolean)
-      .join(". ")
-      .slice(0, 700);
+      .join(" ")
+      .slice(0, 850);
 
     const transcription =
       await groq.audio.transcriptions.create({
         url: signed.signedUrl,
-        model: GROQ_MODELS.transcription,
+        model: ACCURATE_TRANSCRIPTION_MODEL,
         language: "en",
         prompt: contextPrompt || undefined,
         response_format: "verbose_json",
@@ -331,7 +382,7 @@ export async function POST(request: Request) {
           duration_seconds:
             response.duration ?? null,
           transcription_model:
-            GROQ_MODELS.transcription,
+            ACCURATE_TRANSCRIPTION_MODEL,
           status: "analyzing",
           analysis_stage:
             "condensing",
@@ -347,6 +398,7 @@ export async function POST(request: Request) {
       ok: true,
       status: "ready",
       lectureId,
+      model: ACCURATE_TRANSCRIPTION_MODEL,
       segmentCount: segments.length,
       transcriptLength:
         transcriptText.length,
