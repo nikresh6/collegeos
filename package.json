@@ -9,6 +9,9 @@
     "lint": "eslint",
     "test:ai": "tsc -p tests/tsconfig.json && node --test .ai-test-build/tests/ai-contracts.test.js"
   },
+  "allowScripts": {
+    "ffmpeg-static": true
+  },
   "dependencies": {
     "@fullcalendar/react": "^7.0.2",
     "@google/genai": "^2.16.0",
