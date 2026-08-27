@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep PDF.js and its native canvas dependency together at runtime so
-  // pdfjs-dist can resolve @napi-rs/canvas normally on Vercel instead of
-  // emitting the optional-canvas resolution warning from a bundled chunk.
-  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  // Keep native/server-only packages external so their runtime assets stay
+  // beside the package instead of being flattened into a webpack bundle.
+  serverExternalPackages: [
+    "@napi-rs/canvas",
+    "pdfjs-dist",
+    "ffmpeg-static",
+  ],
 };
 
 export default nextConfig;
