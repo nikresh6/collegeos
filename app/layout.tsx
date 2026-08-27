@@ -29,6 +29,7 @@ import { GlobalNavigation } from "../components/global-navigation";
 import { SolveAssistant } from "../components/solve-assistant";
 import { ExamIntelligence } from "../components/exam-intelligence";
 import { AcademicMathRenderer } from "../components/academic-math-renderer";
+import { LectureNoteEditorUpgrade } from "../components/lecture-note-editor-upgrade";
 
 export const metadata:
   Metadata = {
@@ -67,6 +68,7 @@ export default function RootLayout({
             <AssessmentFeedbackPrompt />
             <GlobalNavigation />
             <AcademicMathRenderer />
+            <LectureNoteEditorUpgrade />
           </LectureRecordingProvider>
         </SchoolIdentityProvider>
       </body>
