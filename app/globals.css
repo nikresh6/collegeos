@@ -36,6 +36,24 @@ body {
   overflow-x: hidden;
 }
 
+.katex {
+  color: inherit;
+  font-size: 1.04em;
+}
+
+.katex-display {
+  max-width: 100%;
+  margin: 0.8rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2rem 0;
+  scrollbar-width: thin;
+}
+
+.katex-display > .katex {
+  min-width: max-content;
+}
+
 .student-notebook-paper {
   background-image:
     linear-gradient(to right, rgba(255,255,255,.022) 1px, transparent 1px),
