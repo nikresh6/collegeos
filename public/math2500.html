@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#070913"/>
+<title>MATH 2500 Quest</title>
+<style>
+:root{
+  --bg:#070913;--panel:#0d1120;--panel2:#11172a;--ink:#f7f8ff;--muted:#9aa5c0;
+  --line:rgba(255,255,255,.08);--a:#7c5cff;--b:#2fd7ff;--good:#42e3a4;--warn:#ffcc66;--bad:#ff7188;
+  --shadow:0 24px 80px rgba(0,0,0,.42);
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:
+radial-gradient(circle at 15% -10%,rgba(124,92,255,.26),transparent 34%),
+radial-gradient(circle at 92% 0%,rgba(47,215,255,.18),transparent 28%),
+linear-gradient(180deg,#090b16 0%,#060811 100%);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+button,input{font:inherit}.shell{max-width:1240px;margin:auto;padding:18px 18px 110px}.top{position:sticky;top:0;z-index:30;background:rgba(7,9,19,.76);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);margin:0 -18px;padding:12px 18px}
+.topin{max-width:1240px;margin:auto;display:flex;align-items:center;gap:14px}.brand{display:flex;align-items:center;gap:10px;font-weight:850;letter-spacing:-.03em}.logo{width:38px;height:38px;border-radius:13px;background:linear-gradient(135deg,var(--a),var(--b));display:grid;place-items:center;box-shadow:0 0 28px rgba(124,92,255,.28);font-weight:900}.tag{font-size:11px;color:#b6c0dc;border:1px solid var(--line);border-radius:99px;padding:5px 8px;background:rgba(255,255,255,.04)}.stats{margin-left:auto;display:flex;gap:8px;align-items:center}.pill{display:flex;gap:7px;align-items:center;padding:8px 10px;border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:12px;font-size:12px;color:#c9d1e7}.pill b{color:#fff}.hero{display:grid;grid-template-columns:1.5fr .8fr;gap:18px;margin-top:26px}.heroCard,.sideCard,.lesson,.examCard{border:1px solid var(--line);background:linear-gradient(180deg,rgba(18,24,44,.88),rgba(10,13,26,.9));border-radius:28px;box-shadow:var(--shadow)}.heroCard{padding:30px;position:relative;overflow:hidden}.heroCard:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;right:-80px;top:-120px;background:radial-gradient(circle,rgba(47,215,255,.22),transparent 62%)}.eyebrow{font-size:11px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;color:#7fe8ff}.hero h1{font-size:clamp(38px,6vw,68px);line-height:.98;letter-spacing:-.055em;margin:10px 0 16px;max-width:760px}.hero p{color:#b6c0d6;line-height:1.65;max-width:760px;font-size:15px}.ctaRow{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}.btn{border:0;border-radius:14px;padding:12px 15px;font-weight:800;cursor:pointer;transition:.2s transform,.2s opacity,.2s background}.btn:hover{transform:translateY(-1px)}.primary{background:linear-gradient(135deg,var(--a),#5d8dff);color:white;box-shadow:0 12px 30px rgba(124,92,255,.25)}.secondary{background:rgba(255,255,255,.06);border:1px solid var(--line);color:#dce3f8}.small{padding:8px 11px;border-radius:11px;font-size:12px}.sideCard{padding:22px}.ring{width:150px;height:150px;margin:8px auto 18px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--good) 0deg,rgba(255,255,255,.07) 0deg);position:relative}.ring:after{content:"";position:absolute;inset:12px;border-radius:50%;background:#0d1221}.ringText{z-index:1;text-align:center}.ringText strong{font-size:32px;display:block;letter-spacing:-.05em}.ringText span{color:#9ea9c3;font-size:11px}.miniGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.mini{border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:14px;padding:12px}.mini span{display:block;font-size:10px;color:#8490aa;text-transform:uppercase;letter-spacing:.11em}.mini b{display:block;margin-top:5px;font-size:16px}.sectionTitle{margin:34px 0 14px;display:flex;align-items:end;justify-content:space-between;gap:10px}.sectionTitle h2{margin:0;font-size:24px;letter-spacing:-.035em}.sectionTitle p{margin:5px 0 0;color:#8e9ab5;font-size:13px}.path{display:grid;grid-template-columns:320px 1fr;gap:18px}.map{position:sticky;top:84px;align-self:start;border:1px solid var(--line);background:rgba(10,13,25,.82);border-radius:24px;padding:16px;max-height:calc(100vh - 105px);overflow:auto}.node{width:100%;display:flex;align-items:center;gap:11px;padding:11px;border:0;border-radius:15px;background:transparent;color:#bbc5dd;text-align:left;cursor:pointer;transition:.18s}.node:hover{background:rgba(255,255,255,.05)}.node.active{background:linear-gradient(90deg,rgba(124,92,255,.2),rgba(47,215,255,.08));color:#fff}.node.locked{opacity:.4}.nodeDot{flex:0 0 35px;height:35px;border-radius:12px;border:1px solid var(--line);display:grid;place-items:center;background:#101528;font-size:12px;font-weight:900}.node.done .nodeDot{background:rgba(66,227,164,.14);color:var(--good);border-color:rgba(66,227,164,.35)}.nodeCopy b{display:block;font-size:12px}.nodeCopy span{font-size:10px;color:#7f8aa3}.lesson{padding:26px;min-height:680px}.lessonTop{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}.lessonTop h2{font-size:32px;margin:4px 0 6px;letter-spacing:-.045em}.lessonTop p{color:#8f9bb5;margin:0}.xp{color:#ffe08a;background:rgba(255,204,102,.09);border:1px solid rgba(255,204,102,.16);padding:7px 9px;border-radius:10px;font-weight:850;font-size:11px}.stage{margin-top:22px;border:1px solid var(--line);background:rgba(255,255,255,.025);border-radius:20px;padding:19px}.stage h3{margin:0 0 10px;font-size:14px;letter-spacing:-.01em}.stage p,.stage li{color:#bbc4da;line-height:1.62;font-size:14px}.stage ul{padding-left:20px}.explain{display:grid;gap:10px}.concept{padding:15px;border-radius:15px;background:linear-gradient(180deg,rgba(124,92,255,.09),rgba(255,255,255,.02));border:1px solid rgba(124,92,255,.15)}.concept strong{display:block;color:#fff;margin-bottom:6px}.formula{overflow:auto;margin:10px 0;padding:13px 14px;border-radius:13px;background:#070a13;border:1px solid rgba(255,255,255,.07);font-family:"SFMono-Regular",Consolas,monospace;color:#d8f4ff;line-height:1.6}.analogy{border-left:3px solid var(--b);padding:9px 12px;background:rgba(47,215,255,.05);border-radius:0 12px 12px 0;color:#ccecf5!important}.q{padding:14px;border-radius:15px;border:1px solid var(--line);background:#0a0e1b;margin-top:10px}.qtitle{font-weight:750;color:#eef2ff;margin-bottom:10px}.choices{display:grid;gap:8px}.choice{border:1px solid var(--line);background:rgba(255,255,255,.035);color:#c7d0e7;border-radius:12px;padding:10px 12px;text-align:left;cursor:pointer}.choice:hover{border-color:rgba(124,92,255,.55)}.choice.correct{border-color:rgba(66,227,164,.7);background:rgba(66,227,164,.09);color:#d9ffef}.choice.wrong{border-color:rgba(255,113,136,.65);background:rgba(255,113,136,.08)}.feedback{margin-top:9px;font-size:12px;color:#9ca8c4}.video{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--line);background:rgba(47,215,255,.05);border-radius:14px}.video a{color:#8eeaff;font-weight:800;text-decoration:none}.practice{display:grid;gap:10px}.practiceItem{border:1px solid var(--line);border-radius:14px;padding:14px;background:rgba(255,255,255,.025)}.practiceItem b{font-size:13px}.hint,.solution{display:none;margin-top:10px;padding:10px 12px;border-radius:11px;background:#080b15;color:#bec7db;font-size:12px;line-height:1.55}.solution{border-left:2px solid var(--good)}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.complete{width:100%;margin-top:20px;padding:15px;font-size:14px}.complete:disabled{opacity:.35;cursor:not-allowed;transform:none}.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(25px);opacity:0;pointer-events:none;background:#12182a;border:1px solid var(--line);padding:12px 16px;border-radius:14px;box-shadow:var(--shadow);transition:.25s;z-index:80;font-weight:800}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.boss{margin-top:18px;border:1px solid rgba(255,204,102,.2);background:linear-gradient(135deg,rgba(255,204,102,.07),rgba(124,92,255,.07));border-radius:18px;padding:17px}.boss b{color:#ffe29a}.footerNote{margin-top:28px;color:#75809a;font-size:11px;text-align:center}.examCard{padding:22px;margin-top:18px}.examGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.chip{padding:9px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.025);font-size:11px;color:#aeb8d0}.chip b{display:block;color:white;margin-bottom:4px}.progressLine{height:7px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}.progressFill{height:100%;background:linear-gradient(90deg,var(--a),var(--b),var(--good));width:0%;transition:.35s}.hideMobile{display:inline}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.path{grid-template-columns:1fr}.map{position:static;display:flex;overflow:auto;max-height:none;padding:10px}.node{min-width:180px}.lesson{min-height:0}.examGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.shell{padding:12px 12px 90px}.top{margin:0 -12px;padding:10px 12px}.brand span:nth-child(2){display:none}.stats{gap:5px}.pill{padding:7px 8px}.hideMobile{display:none}.heroCard{padding:22px;border-radius:22px}.hero h1{font-size:42px}.sideCard{border-radius:22px}.lesson{padding:17px;border-radius:20px}.lessonTop h2{font-size:27px}.stage{padding:14px}.examGrid{grid-template-columns:1fr}.map{margin:0 -2px}.node{min-width:165px}.formula{font-size:12px}.video{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="top"><div class="topin">
+  <div class="brand"><div class="logo">M</div><span>MATH 2500 QUEST</span><span class="tag">TEST 1</span></div>
+  <div class="stats">
+    <div class="pill">⚡ <b id="xpTop">0 XP</b></div>
+    <div class="pill">🔥 <b id="streakTop">1</b><span class="hideMobile"> day</span></div>
+    <div class="pill">❤️ <b id="heartTop">5</b></div>
+  </div>
+</div></div>
+
+<main class="shell">
+<section class="hero">
+  <div class="heroCard">
+    <div class="eyebrow">Thursday mission</div>
+    <h1>From “I know nothing” to proof-ready.</h1>
+    <p>This course starts at vectors as arrows and climbs one small step at a time. Every lesson follows the same rhythm: understand one idea, pass a quick check, watch a targeted video if you need it, then do exam-style practice. The later worlds train the exact proof moves your sample test and homework keep using.</p>
+    <div class="ctaRow"><button class="btn primary" id="continueBtn">Continue quest →</button><button class="btn secondary" onclick="resetProgress()">Reset progress</button></div>
+    <div style="margin-top:22px" class="progressLine"><div class="progressFill" id="heroProgress"></div></div>
+  </div>
+  <aside class="sideCard">
+    <div class="ring" id="ring"><div class="ringText"><strong id="pct">0%</strong><span>course mastery</span></div></div>
+    <div class="miniGrid">
+      <div class="mini"><span>Lessons</span><b id="lessonCount">0/12</b></div>
+      <div class="mini"><span>Goal</span><b>Proof-ready</b></div>
+      <div class="mini"><span>Exam</span><b>Thu 9/24</b></div>
+      <div class="mini"><span>Mode</span><b>Beginner</b></div>
+    </div>
+  </aside>
+</section>
+
+<div class="sectionTitle"><div><h2>Your learning path</h2><p>Finish a lesson to unlock the next one. Wrong answers cost a heart, not your confidence.</p></div></div>
+<section class="path">
+  <nav class="map" id="map"></nav>
+  <article class="lesson" id="lesson"></article>
+</section>
+
+<div class="sectionTitle"><div><h2>Exam radar</h2><p>What the source materials repeatedly emphasize.</p></div></div>
+<section class="examCard">
+  <div class="examGrid">
+    <div class="chip"><b>Vector geometry</b>Dot product, norm, angles, projections, parallelograms, lines and planes.</div>
+    <div class="chip"><b>Proof mechanics</b>Subspace closure, set equality via two inclusions, contradiction, counterexamples.</div>
+    <div class="chip"><b>Linear maps</b>Standard matrices, composition order, rotations, kernel arguments.</div>
+    <div class="chip"><b>Orthogonality</b>Perps, orthogonal complements, orthogonal matrices, length and angle preservation.</div>
+    <div class="chip"><b>Matrix structure</b>One-sided inverse arguments, transpose, symmetric/skew-symmetric, determinant products.</div>
+    <div class="chip"><b>Induction</b>Base case, induction hypothesis, k→k+1, matrix-power patterns.</div>
+  </div>
+</section>
+<p class="footerNote">Progress is stored only in this browser. No account or database needed.</p>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+var lessons = [
+{
+title:"0. Learn the language", short:"Notation decoder", xp:20,
+intro:"Before solving anything, make the symbols stop looking hostile.",
+concepts:[
+["Rⁿ","This means all vectors with n real-number coordinates. R² is the plane, R³ is ordinary 3D coordinate space, and R⁴ is the same idea with four coordinates."],
+["Vector","A vector is just an ordered list of numbers. [3,4] can be pictured as an arrow from the origin to (3,4)."],
+["Scalar","A scalar is an ordinary number. Multiplying a vector by 2 doubles every coordinate and stretches the arrow."],
+["Zero vector","0 means every coordinate is zero. It matters because every linear subspace must contain it."],
+["Big exam translation","“Show” or “prove” means justify every step. “Counterexample” means one valid example that makes a claimed universal statement fail."]
+],
+checks:[
+["Which object is a vector in R³?",["7","[2, -1, 5]","x + 4","π"],1,"R³ vectors have exactly three real coordinates."],
+["If v=[2,3], what is 4v?",["[6,7]","[8,12]","[8,3]","[2,12]"],1,"Scalar multiplication multiplies every coordinate."]
+],
+video:["Vectors, 3Blue1Brown","https://www.youtube.com/watch?v=fNk_zzaMoSs"],
+practice:[
+["Write the zero vector in R⁴.","[0,0,0,0].","Think: four coordinates, all zero."],
+["In plain English, what does x ∈ R³ mean?","x is a vector with three real-number coordinates.","The symbol ∈ means “belongs to.”"]
+]
+},
+{
+title:"1. Vectors: move, add, scale", short:"Vector basics", xp:25,
+intro:"Nearly every geometry proof on your test becomes easier once you can translate points into directed vectors.",
+concepts:[
+["Addition","Add coordinate by coordinate. [a,b]+[c,d]=[a+c,b+d]. Geometrically, place arrows head-to-tail."],
+["Subtraction","B−A is the directed vector from point A to point B."],
+["Length / norm","‖v‖ = √(v·v). In R², [3,4] has length 5."],
+["Parallel","Two nonzero vectors are parallel when one is a scalar multiple of the other."],
+["Parallelogram move","If A is the shared corner and B,C are adjacent corners, the fourth corner is B+C−A."]
+],
+checks:[
+["What vector points from A=(1,2) to B=(5,7)?",["[6,9]","[4,5]","[-4,-5]","[5,7]"],1,"Compute B−A."],
+["If y=−3x, what is true?",["x and y are perpendicular","x and y are parallel","x=y","Both must be zero"],1,"A scalar multiple points on the same line."]
+],
+video:["Vectors and spaces, Khan Academy","https://www.youtube.com/watch?v=fNk_zzaMoSs"],
+practice:[
+["Let x=[1,−2,3] and y=[4,1,0]. Find x+y.","[5,−1,3].","Add each coordinate."],
+["A=(1,2), B=(4,6), C=(2,7). If A is the shared corner of a parallelogram, find D.","D=B+C−A=(5,11).","Use D=B+C−A."]
+]
+},
+{
+title:"2. Dot product, length, angle", short:"Dot product", xp:30,
+intro:"This is the engine behind angles, perpendicularity, Cauchy-Schwarz, projections, and several proofs.",
+concepts:[
+["Dot product","x·y = x₁y₁ + x₂y₂ + ... + xₙyₙ. Multiply matching coordinates, then add."],
+["Core properties","Symmetry: x·y=y·x. Additivity: x·(y+z)=x·y+x·z. Homogeneity: x·(cy)=c(x·y). Positive definiteness: x·x≥0 and equals 0 only for x=0."],
+["Orthogonal","x ⟂ y exactly when x·y=0."],
+["Angle formula","cos θ = (x·y)/(‖x‖‖y‖). Then θ=arccos(...) for nonzero vectors."],
+["Cauchy-Schwarz","|x·y| ≤ ‖x‖‖y‖. It says the dot product can never be bigger in magnitude than the product of the lengths."]
+],
+checks:[
+["[3,1]·[-1,3] equals...",["-6","0","2","6"],1,"3(-1)+1(3)=0, so these are perpendicular."],
+["If y·y=0, what can you conclude?",["y is parallel to every vector","y=0","‖y‖=1","Nothing"],1,"Positive definiteness gives y=0."]
+],
+video:["Cauchy-Schwarz inequality, Khan Academy","https://www.youtube.com/watch?v=r2PogGDl8_U"],
+practice:[
+["Find the angle between x=[1,0] and y=[1,1].","x·y=1, ‖x‖=1, ‖y‖=√2, so cosθ=1/√2 and θ=π/4.","Always compute dot product and both lengths first."],
+["Prove: if x·y=0 for every x∈Rⁿ, then y=0.","Choose x=y. Then y·y=0. Positive definiteness gives y=0.","When a statement is true for EVERY x, choose the x that makes your life easiest."]
+]
+},
+{
+title:"3. Projection, lines, planes", short:"Geometry toolkit", xp:35,
+intro:"This world turns vector formulas into the exact line and plane questions on the sample test.",
+concepts:[
+["Projection","proj_w(v) = ((v·w)/(w·w))w. Think: the shadow of v on the direction w."],
+["Line","A line through point p with direction d is x=p+td. Through the origin, it is x=td."],
+["Plane normal","For ax+by+cz=d, the normal vector is n=[a,b,c]. It points perpendicular to the plane."],
+["Perpendicular line to plane","Use the plane's normal as the line's direction."],
+["Parallel planes","Parallel planes have the same normal vector. Plug the required point into ax+by+cz=d to get the new d."],
+["Affine vs linear","A linear line/subspace must pass through 0. An affine line can be shifted away from 0."]
+],
+checks:[
+["A plane is 2x−y+3z=7. A perpendicular line can use which direction?",["[1,1,1]","[2,−1,3]","[2,1,3]","[7,7,7]"],1,"The coefficients give the normal vector."],
+["Which line is automatically a linear subspace?",["x=p+td with p≠0","x=td","x=p+t","Any line"],1,"A linear subspace must contain the origin."]
+],
+video:["Orthogonal projections","https://www.youtube.com/watch?v=K6ZCP8cpCc8"],
+practice:[
+["Project v=[1,2] onto w=[1,0].","v·w=1, w·w=1, so proj_w(v)=[1,0].","Projection coefficient is (v·w)/(w·w)."],
+["Find a line through P=(1,2,3) perpendicular to 2x−y+3z=7.","[x,y,z]=[1,2,3]+t[2,−1,3].","Normal vector = line direction."]
+]
+},
+{
+title:"4. Matrices without fear", short:"Matrix basics", xp:35,
+intro:"A matrix is a machine for vectors. The arithmetic matters because composition of machines becomes matrix multiplication.",
+concepts:[
+["Matrix-vector multiplication","Each output coordinate is a row dot the input vector."],
+["Matrix multiplication","AB means B acts first, then A. This order is one of the easiest points to lose on a test."],
+["Identity I","I is the do-nothing matrix. AI=IA=A."],
+["Transpose Aᵀ","Swap rows and columns."],
+["Not commutative","Usually AB≠BA. Matrix multiplication has order."],
+["Inverse","A⁻¹ undoes A: AA⁻¹=A⁻¹A=I."]
+],
+checks:[
+["For composition S∘T, which matrix product is correct?",["TS","ST","S+T","T−S"],1,"T happens first, so its matrix sits on the right."],
+["What does AB=I tell you about applying B then A?",["It returns the original vector","It always gives zero","A=B","AB=BA automatically"],0,"I leaves vectors unchanged."]
+],
+video:["Linear transformations and matrices, 3Blue1Brown","https://www.youtube.com/watch?v=gMsQWoVG3Ao"],
+practice:[
+["Give a 2×2 example with AB≠BA.","One example: A=[[1,1],[0,1]], B=[[1,0],[1,1]]. Then AB=[[2,1],[1,1]] while BA=[[1,1],[1,2]].","Try simple triangular matrices."],
+["If AB=I and Bx=0, prove x=0.","x=Ix=(AB)x=A(Bx)=A0=0.","Insert I=AB, then use the hypothesis."]
+]
+},
+{
+title:"5. Linear transformations + rotations", short:"Transformations", xp:40,
+intro:"Your sample asks for standard matrices of rotations and their composition. Learn the geometry first, then the matrix pattern.",
+concepts:[
+["Linear transformation","T is linear if T(x+y)=T(x)+T(y) and T(cx)=cT(x)."],
+["Standard matrix","Its columns are T(e₁), T(e₂), ..., the images of the standard basis vectors."],
+["z-axis rotation","Rz(θ)=[[cosθ,−sinθ,0],[sinθ,cosθ,0],[0,0,1]]. The z-coordinate stays fixed."],
+["x-axis rotation","Rx(θ)=[[1,0,0],[0,cosθ,−sinθ],[0,sinθ,cosθ]]. The x-coordinate stays fixed."],
+["Composition","[S∘T]=[S][T]. Read right to left when deciding which acts first."],
+["Kernel idea","ker(T)={x:T(x)=0}. It is always a linear subspace."]
+],
+checks:[
+["For rotation about the x₃-axis, which coordinate stays unchanged?",["x₁","x₂","x₃","None"],2,"The rotation happens in the x₁x₂-plane."],
+["The columns of a standard matrix are...",["The rows of T","T(e₁), T(e₂), ...","Only eigenvectors","The coefficients of I"],1,"This is the fastest reliable way to build a transformation matrix."]
+],
+video:["3D rotation matrices around coordinate axes","https://www.youtube.com/watch?v=fIHgznIttvk"],
+practice:[
+["Write Rz(π/2).","[[0,−1,0],[1,0,0],[0,0,1]].","cos(π/2)=0 and sin(π/2)=1."],
+["Prove ker(T) is a subspace.","0 is in ker(T) because T(0)=0. If x,y are in it, T(x+y)=T(x)+T(y)=0. If c is scalar, T(cx)=cT(x)=0.","Use the three subspace checks."]
+]
+},
+{
+title:"6. Subspaces, span, affine spaces", short:"Subspace world", xp:45,
+intro:"This is the most reusable proof template in your homework and sample test.",
+concepts:[
+["Subspace test","LS1: 0∈V. LS2: x,y∈V ⇒ x+y∈V. LS3: x∈V and c∈R ⇒ cx∈V."],
+["Fast disproof","To show a set is NOT a subspace, break just one condition. Often zero is easiest."],
+["Span","span{v₁,...,vₖ} means all linear combinations a₁v₁+...+aₖvₖ."],
+["Smallest subspace","The span is the smallest subspace containing the listed vectors."],
+["Intersection and sum","U∩V and U+V are subspaces. U∪V usually is not."],
+["Affine subspace","An affine subspace is p+U, a linear subspace shifted by a point p."]
+],
+checks:[
+["L={(x,y):x+y=1}. Why is it not a subspace?",["Not closed under addition","0 is not in L","It has too many vectors","It is affine"],1,"0+0≠1. Failing LS1 ends the proof immediately."],
+["What is span{v₁,v₂}?",["Only v₁ and v₂","All a v₁+b v₂","Their intersection","Their dot product"],1,"Span means every linear combination."]
+],
+video:["Subspace of a vector space, Kimberly Brehm","https://www.youtube.com/watch?v=2Ee2B1Jp5ZE"],
+practice:[
+["Show symmetric n×n matrices form a subspace.","0ᵀ=0. If Aᵀ=A and Bᵀ=B, then (A+B)ᵀ=Aᵀ+Bᵀ=A+B. Also (cA)ᵀ=cAᵀ=cA.","Use transpose rules inside the three subspace checks."],
+["Why is U∪V usually not a subspace?","Example in R²: U=x-axis, V=y-axis. (1,0) and (0,1) are in U∪V, but their sum (1,1) is not.","One counterexample disproves an “always true” statement."]
+]
+},
+{
+title:"7. Proof dojo", short:"Proof patterns", xp:50,
+intro:"Now we stop treating proofs as magic. Most of your test proofs are one of five reusable patterns.",
+concepts:[
+["Pattern 1: direct","Assume the hypotheses. Translate definitions. Use algebra. Finish with the desired statement."],
+["Pattern 2: two inclusions","To prove A=B, prove A⊆B and B⊆A separately."],
+["Pattern 3: contradiction","Assume the opposite of what you want, then force an impossibility."],
+["Pattern 4: counterexample","To disprove “for all,” give one legal example where the conclusion fails."],
+["Pattern 5: strategic choice","If something holds for every x, pick a useful x such as x=y, x=0, or x=u+v."],
+["Professor style","Write complete sentences around the equations. Name the definition/property you use when it matters."]
+],
+checks:[
+["To prove two sets are equal, the safest template is...",["Compare their sizes","Prove both inclusions","Draw a picture","Use contradiction only"],1,"Set equality is usually two containment proofs."],
+["To disprove “U∪V is always a subspace,” you need...",["A full theorem","One counterexample","Induction","A determinant"],1,"One failure is enough."]
+],
+video:["Mathematical proof introduction","https://www.youtube.com/results?search_query=linear+algebra+proofs+subspace+proof"],
+practice:[
+["Prove: if x·y=x·z for every x, then y=z.","Then x·(y−z)=0 for every x. Choose x=y−z. So ‖y−z‖²=0, hence y−z=0 and y=z.","Exploit “for every x” by choosing x=y−z."],
+["Prove inverse uniqueness from AB=I=CA.","C=C(AB)=(CA)B=IB=B.","Associate products so each given identity appears."]
+]
+},
+{
+title:"8. Orthogonality + perps", short:"Orthogonal world", xp:55,
+intro:"Orthogonal complements look abstract, but the definition is just “perpendicular to every vector in the set.”",
+concepts:[
+["Orthogonal complement","V⊥={x:x·v=0 for every v∈V}."],
+["Useful facts","V⊥ is a subspace. V∩V⊥={0}. If V⊆W, then W⊥⊆V⊥."],
+["Key sample identity","(U+V)⊥ = U⊥ ∩ V⊥. Prove both inclusions."],
+["Orthogonal matrix","QᵀQ=I, equivalently Q⁻¹=Qᵀ."],
+["Why orthogonal matrices matter","They preserve dot products, therefore they preserve lengths and angles."],
+["Product rule","If A and B are orthogonal, AB is orthogonal because (AB)ᵀ(AB)=BᵀAᵀAB=I."]
+],
+checks:[
+["x∈V⊥ means...",["x∈V","x is perpendicular to every v∈V","x=0","V is a plane"],1,"That is the definition."],
+["If Q is orthogonal, QᵀQ equals...",["Q","0","I","Q²"],2,"This is the defining matrix identity."]
+],
+video:["Orthogonal matrices preserve angles and lengths, Khan Academy","https://www.youtube.com/watch?v=yDwIfYjKEeo"],
+practice:[
+["Prove V∩V⊥={0}.","0 belongs to both. If x∈V∩V⊥, then x is orthogonal to every vector in V, including itself. So x·x=0 and x=0.","The key move is “in particular, x is orthogonal to itself.”"],
+["Prove (U+V)⊥⊆U⊥∩V⊥.","Let x∈(U+V)⊥. For u∈U, u=u+0∈U+V, so x·u=0. Thus x∈U⊥. Similarly x∈V⊥.","Use 0 from the other subspace."]
+]
+},
+{
+title:"9. Determinants + inverses", short:"Determinants", xp:50,
+intro:"The sample uses determinants mainly through identities, not giant computations.",
+concepts:[
+["2×2 determinant","det([[a,b],[c,d]])=ad−bc."],
+["Product theorem","det(AB)=det(A)det(B). Because real-number multiplication commutes, det(AB)=det(BA)."],
+["Rotation determinant","A 2D rotation Rθ has det(Rθ)=cos²θ+sin²θ=1."],
+["Invertibility","For square matrices, a two-sided inverse satisfies AA⁻¹=A⁻¹A=I."],
+["Polynomial trick","If A²−3A+2I=0, rearrange to A(3I−A)=2I, so A⁻¹=(1/2)(3I−A)."],
+["One-sided logic on sample","If AB=Iₘ, then Bx=0 implies x=0, and every y has x=By with Ax=y."]
+],
+checks:[
+["det(AB) equals...",["det(A)+det(B)","det(A)det(B)","det(A−B)","det(B)/det(A)"],1,"This product rule powers multiple sample problems."],
+["A 2D rotation matrix has determinant...",["0","−1","1","θ"],2,"cos²θ+sin²θ=1."]
+],
+video:["Determinant intuition, 3Blue1Brown","https://www.youtube.com/watch?v=Ip3X9LOh2dk"],
+practice:[
+["Show det(RθA)=det(A).","det(RθA)=det(Rθ)det(A)=1·det(A)=det(A).","Use the determinant product rule plus det(Rθ)=1."],
+["Given AB=Iₘ, show A is onto Rᵐ.","Take any y∈Rᵐ. Choose x=By. Then Ax=A(By)=(AB)y=Iₘy=y.","For existence proofs, construct the x explicitly."]
+]
+},
+{
+title:"10. Induction + matrix powers", short:"Induction", xp:55,
+intro:"Induction is a script. Once the three pieces are automatic, matrix-power proofs become much less scary.",
+concepts:[
+["Base case","Verify the formula at the starting n, usually n=1."],
+["Induction hypothesis","Assume the formula is true for n=k. Write the exact assumed formula."],
+["Induction step","Compute the n=k+1 case and use the hypothesis to transform it into the desired formula."],
+["Upper triangular pattern","For A=[[1,1],[0,1]], experimentation gives Aⁿ=[[1,n],[0,1]]."],
+["Fibonacci matrix","For A=[[1,1],[1,0]], Aⁿ=[[Fₙ₊₁,Fₙ],[Fₙ,Fₙ₋₁]]."],
+["Linearity induction","To extend T(v₁+v₂)=T(v₁)+T(v₂) to k vectors, group the first k terms, apply the induction hypothesis, then use linearity once more."]
+],
+checks:[
+["What comes immediately after the base case?",["Conclusion","Counterexample","Induction hypothesis","Determinant"],2,"State what you assume for n=k."],
+["To prove a formula for A^(k+1), a natural first step is...",["A^k A","A+A^k","det(A)","A−I"],0,"A^(k+1)=A^kA lets you use the hypothesis."]
+],
+video:["Matrix powers with induction","https://www.youtube.com/watch?v=g85uoIwv31w"],
+practice:[
+["Prove Aⁿ=[[1,n],[0,1]] for A=[[1,1],[0,1]].","Base n=1 is immediate. Assume Aᵏ=[[1,k],[0,1]]. Then A^(k+1)=AᵏA=[[1,k],[0,1]][[1,1],[0,1]]=[[1,k+1],[0,1]].","Write the multiplication explicitly."],
+["Why do we experiment with A, A², A³ first?","To spot and conjecture the pattern before proving it for every n.","The problem explicitly asks you to conjecture a formula."]
+]
+},
+{
+title:"11. Boss battle: exam mode", short:"Mixed mastery", xp:100,
+intro:"No new ideas. This is retrieval practice across the exact families appearing in the sample test and homework.",
+concepts:[
+["Rule","Try each prompt before opening the solution. If you cannot even start, go back to the named world."],
+["Proof opening","First line should usually name an arbitrary element or state the hypothesis you are assuming."],
+["Formula dump","Angle: cosθ=(v·w)/(‖v‖‖w‖). Projection: ((v·w)/(w·w))w. Line: p+td. Orthogonal matrix: QᵀQ=I. Determinant product: det(AB)=det(A)det(B)."],
+["Subspace dump","0 in set, closed under addition, closed under scalar multiplication."],
+["Exam habit","Do not leave a proof as unexplained algebra. Add the one sentence explaining why the key step is legal."]
+],
+checks:[
+["You see “prove S is a linear subspace.” Your first mental checklist is...",["det, trace, inverse","zero, addition, scalar multiplication","angle, norm, projection","base, hypothesis, step"],1,"This should become automatic."],
+["You see “(U+V)⊥=U⊥∩V⊥.” What proof shape?",["Two inclusions","Induction","Counterexample","Computation only"],0,"Equality of sets: prove both containments."]
+],
+video:["Essence of Linear Algebra playlist review","https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr"],
+practice:[
+["Mixed 1: Let v=[−1,0,1], w=[3,4,5]. Set up, but do not decimalize, the angle and projection.","v·w=2, ‖v‖=√2, ‖w‖=√50. Angle=arccos(2/(√2√50))=arccos(1/5). Projection=(2/50)w=(1/25)[3,4,5].","This mirrors Sample Problem 1."],
+["Mixed 2: Why does a line p+td fail to be linear when p is not on the direction line through 0?","A linear subspace must contain 0. A shifted affine line generally does not contain 0.","Always test the zero vector early."],
+["Mixed 3: Prove AB orthogonal when A,B are orthogonal.","(AB)ᵀ(AB)=BᵀAᵀAB=BᵀIB=BᵀB=I.","Use (AB)ᵀ=BᵀAᵀ and each orthogonality identity."],
+["Mixed 4: If T is orthogonal, why are lengths preserved?","‖T(u)‖²=T(u)·T(u)=u·u=‖u‖², so the nonnegative lengths are equal.","Orthogonal transformations preserve dot products."]
+]
+}
+];
+
+var state={done:[],xp:0,hearts:5,streak:1,current:0,passed:{}};
+try{var saved=JSON.parse(localStorage.getItem("m2500Quest")||"null");if(saved)state=Object.assign(state,saved)}catch(e){}
+function save(){localStorage.setItem("m2500Quest",JSON.stringify(state));renderStats()}
+function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},1700)}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]})}
+function renderStats(){
+  document.getElementById("xpTop").textContent=state.xp+" XP";
+  document.getElementById("heartTop").textContent=state.hearts;
+  document.getElementById("streakTop").textContent=state.streak;
+  var pct=Math.round((state.done.length/lessons.length)*100);
+  document.getElementById("pct").textContent=pct+"%";
+  document.getElementById("lessonCount").textContent=state.done.length+"/"+lessons.length;
+  document.getElementById("heroProgress").style.width=pct+"%";
+  document.getElementById("ring").style.background="conic-gradient(var(--good) "+(pct*3.6)+"deg,rgba(255,255,255,.07) 0deg)";
+}
+function isUnlocked(i){return i===0||state.done.indexOf(i-1)>=0||state.done.indexOf(i)>=0}
+function renderMap(){
+  var m=document.getElementById("map");m.innerHTML="";
+  lessons.forEach(function(l,i){
+    var b=document.createElement("button");
+    b.className="node "+(i===state.current?"active ":"")+(state.done.indexOf(i)>=0?"done ":"")+(!isUnlocked(i)?"locked":"");
+    b.innerHTML='<div class="nodeDot">'+(state.done.indexOf(i)>=0?"✓":(!isUnlocked(i)?"🔒":(i+1)))+'</div><div class="nodeCopy"><b>'+escapeHtml(l.short)+'</b><span>'+l.xp+' XP</span></div>';
+    b.onclick=function(){if(!isUnlocked(i)){toast("Finish the previous lesson first 🔒");return}state.current=i;save();renderMap();renderLesson()};
+    m.appendChild(b);
+  });
+}
+function checkKey(i,q){return i+"-"+q}
+function renderLesson(){
+  var i=state.current,l=lessons[i],root=document.getElementById("lesson");
+  var html='<div class="lessonTop"><div><div class="eyebrow">WORLD '+(i+1)+' OF '+lessons.length+'</div><h2>'+escapeHtml(l.title)+'</h2><p>'+escapeHtml(l.intro)+'</p></div><div class="xp">+'+l.xp+' XP</div></div>';
+  html+='<section class="stage"><h3>① LEARN</h3><div class="explain">';
+  l.concepts.forEach(function(c){html+='<div class="concept"><strong>'+escapeHtml(c[0])+'</strong><div>'+escapeHtml(c[1])+'</div></div>'});
+  html+='</div></section>';
+  html+='<section class="stage"><h3>② QUICK CHECK</h3><p>Get both right to unlock lesson completion.</p>';
+  l.checks.forEach(function(q,qi){
+    html+='<div class="q"><div class="qtitle">'+escapeHtml(q[0])+'</div><div class="choices">';
+    q[1].forEach(function(c,ci){html+='<button class="choice" id="c-'+qi+'-'+ci+'" onclick="answer('+qi+','+ci+')">'+escapeHtml(c)+'</button>'});
+    html+='</div><div class="feedback" id="f-'+qi+'">'+(state.passed[checkKey(i,qi)]?"✓ mastered":"")+'</div></div>';
+  });
+  html+='</section>';
+  html+='<section class="stage"><h3>③ WATCH, ONLY IF YOU NEED IT</h3><div class="video"><div><b>'+escapeHtml(l.video[0])+'</b><div class="feedback">Targeted refresher, not homework.</div></div><a target="_blank" rel="noopener" href="'+l.video[1]+'">Open YouTube ↗</a></div></section>';
+  html+='<section class="stage"><h3>④ PRACTICE</h3><div class="practice">';
+  l.practice.forEach(function(p,pi){
+    html+='<div class="practiceItem"><b>'+escapeHtml(p[0])+'</b><div class="row"><button class="btn secondary small" onclick="toggleBox(\'h-'+pi+'\')">Hint</button><button class="btn secondary small" onclick="toggleBox(\'s-'+pi+'\')">Show solution</button></div><div class="hint" id="h-'+pi+'">'+escapeHtml(p[2])+'</div><div class="solution" id="s-'+pi+'">'+escapeHtml(p[1])+'</div></div>';
+  });
+  html+='</div></section>';
+  if(i===11){html+='<div class="boss"><b>Boss rule:</b> You are ready when you can start every problem without notes and can explain why each proof move is valid.</div>'}
+  var mastered=state.done.indexOf(i)>=0;
+  html+='<button class="btn primary complete" id="completeBtn" '+((!allChecksPassed(i)&&!mastered)?"disabled":"")+' onclick="completeLesson()">'+(mastered?"✓ Lesson mastered":"Complete lesson +"+l.xp+" XP")+'</button>';
+  root.innerHTML=html;
+}
+function allChecksPassed(i){for(var q=0;q<lessons[i].checks.length;q++){if(!state.passed[checkKey(i,q)])return false}return true}
+function answer(qi,ci){
+  var i=state.current,q=lessons[i].checks[qi],ok=ci===q[2];
+  var buttons=document.querySelectorAll('[id^="c-'+qi+'-"]');buttons.forEach(function(b){b.disabled=true});
+  var chosen=document.getElementById("c-"+qi+"-"+ci),correct=document.getElementById("c-"+qi+"-"+q[2]);
+  if(ok){chosen.classList.add("correct");state.passed[checkKey(i,qi)]=true;document.getElementById("f-"+qi).textContent="Correct. "+q[3];toast("+5 XP ⚡");state.xp+=5}
+  else{chosen.classList.add("wrong");correct.classList.add("correct");state.hearts=Math.max(0,state.hearts-1);document.getElementById("f-"+qi).textContent="Not quite. "+q[3];toast("Review the explanation, then keep going.")}
+  save();setTimeout(function(){renderLesson()},1000)
+}
+function toggleBox(id){var e=document.getElementById(id);e.style.display=e.style.display==="block"?"none":"block"}
+function completeLesson(){
+  var i=state.current;if(!allChecksPassed(i)&&state.done.indexOf(i)<0)return;
+  if(state.done.indexOf(i)<0){state.done.push(i);state.xp+=lessons[i].xp;toast("Lesson mastered! +"+lessons[i].xp+" XP 🎉")}
+  if(i<lessons.length-1)state.current=i+1;
+  save();renderMap();renderLesson();window.scrollTo({top:document.querySelector(".path").offsetTop-74,behavior:"smooth"})
+}
+function resetProgress(){if(confirm("Reset all XP and lesson progress?")){state={done:[],xp:0,hearts:5,streak:1,current:0,passed:{}};save();renderMap();renderLesson();toast("Fresh start.")}}
+document.getElementById("continueBtn").onclick=function(){for(var i=0;i<lessons.length;i++){if(state.done.indexOf(i)<0){state.current=i;break}}save();renderMap();renderLesson();document.querySelector(".path").scrollIntoView({behavior:"smooth"})};
+renderStats();renderMap();renderLesson();
+</script>
+</body></html>
