@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#090b14" />
+  <title>M2500 Quest | Test 1</title>
+  <meta name="description" content="A gamified Math 2500 Test 1 course built from the sample test, homework, and Hughes textbook." />
+<style>
+:root{
+  --bg:#090b14;--panel:#101522;--panel2:#151b2d;--line:rgba(255,255,255,.09);--text:#f7f8fc;--muted:#9ca7bc;
+  --violet:#8b7cff;--cyan:#56d7ff;--green:#67e8a6;--gold:#ffc857;--pink:#ff73c7;--red:#ff6b7a;
+  --shadow:0 24px 70px rgba(0,0,0,.35);--radius:24px;
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 20% 0%,#171631 0,#090b14 42%),var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh;overflow-x:hidden}button,input{font:inherit}.bg-orb{position:fixed;border-radius:999px;filter:blur(90px);opacity:.15;pointer-events:none;z-index:-1}.orb-one{width:460px;height:460px;background:#705cff;right:-180px;top:80px}.orb-two{width:360px;height:360px;background:#35d3ff;left:-180px;bottom:10%}.topbar{height:78px;position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:0 30px;border-bottom:1px solid var(--line);background:rgba(9,11,20,.82);backdrop-filter:blur(20px)}.brand{border:0;background:none;color:inherit;display:flex;gap:12px;align-items:center;text-align:left;cursor:pointer}.brand-mark{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--violet),var(--cyan));font-family:Inter;font-weight:800;box-shadow:0 10px 24px rgba(92,105,255,.3)}.brand strong{display:block;font-family:Inter;font-size:17px}.brand small{color:var(--muted);display:block;margin-top:2px}.stats{display:flex;gap:8px}.stat{min-width:78px;padding:8px 12px;border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:15px;display:grid;grid-template-columns:auto auto;gap:0 5px;align-items:center}.stat span{grid-row:1/3;font-size:18px}.stat strong{font-size:14px}.stat small{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1440px;margin:0 auto}.sidebar{position:sticky;top:78px;height:calc(100vh - 78px);padding:28px 20px;border-right:1px solid var(--line)}.sidebar nav{display:grid;gap:8px}.nav-item{border:0;background:transparent;color:var(--muted);padding:13px 14px;border-radius:14px;text-align:left;cursor:pointer;font-weight:700;display:flex;gap:11px;align-items:center}.nav-item span{font-size:18px;width:22px}.nav-item:hover,.nav-item.active{color:#fff;background:rgba(255,255,255,.07)}.deadline-card{margin-top:28px;padding:18px;border:1px solid rgba(139,124,255,.28);background:linear-gradient(145deg,rgba(139,124,255,.11),rgba(86,215,255,.05));border-radius:20px}.eyebrow{font-size:10px;letter-spacing:.14em;color:var(--cyan);font-weight:800}.deadline-card strong{display:block;margin:7px 0 5px}.deadline-card p,.source-note{font-size:12px;line-height:1.5;color:var(--muted)}.deadline-bar{height:6px;background:rgba(255,255,255,.08);border-radius:20px;overflow:hidden;margin-top:12px}.deadline-bar i{height:100%;display:block;width:35%;background:linear-gradient(90deg,var(--violet),var(--cyan));border-radius:20px}.source-note{margin-top:18px;padding:0 5px}.main{padding:42px 48px 100px;min-width:0}.hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,.7fr);gap:24px;align-items:stretch}.hero-card,.panel{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(21,27,45,.94),rgba(13,17,29,.94));box-shadow:var(--shadow)}.hero-card{padding:34px;position:relative;overflow:hidden}.hero-card:after{content:'';position:absolute;width:260px;height:260px;border-radius:50%;right:-120px;top:-130px;background:radial-gradient(circle,rgba(86,215,255,.24),transparent 70%)}.kicker{color:var(--green);font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase}.hero h1{font-family:Inter;font-size:clamp(36px,5vw,65px);line-height:.98;letter-spacing:-.045em;margin:12px 0 16px;max-width:760px}.hero p{color:var(--muted);font-size:16px;line-height:1.65;max-width:720px}.cta-row{display:flex;flex-wrap:wrap;gap:11px;margin-top:24px}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:800;cursor:pointer;transition:.2s transform,.2s filter;display:inline-flex;align-items:center;gap:8px;text-decoration:none}.btn:hover{transform:translateY(-2px);filter:brightness(1.06)}.btn-primary{background:linear-gradient(135deg,var(--violet),#6f8cff);color:#fff;box-shadow:0 12px 28px rgba(120,100,255,.27)}.btn-secondary{background:rgba(255,255,255,.07);color:#fff;border:1px solid var(--line)}.mission{padding:26px;display:flex;flex-direction:column}.mission h3{font-size:18px;margin:6px 0}.mission-score{font-family:Inter;font-size:52px;font-weight:700;margin:auto 0 4px;background:linear-gradient(135deg,var(--gold),var(--pink));-webkit-background-clip:text;color:transparent}.mission small{color:var(--muted)}.section-title{display:flex;justify-content:space-between;align-items:end;margin:38px 0 16px}.section-title h2{font-family:Inter;font-size:25px;margin:0}.section-title p{margin:0;color:var(--muted);font-size:13px}.journey{position:relative;display:grid;gap:16px}.lesson-node{position:relative;display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:18px;align-items:center;padding:18px 20px;border:1px solid var(--line);border-radius:20px;background:rgba(16,21,34,.84);cursor:pointer;transition:.2s;border-left:3px solid transparent}.lesson-node:hover:not(.locked){transform:translateY(-2px);background:rgba(22,29,47,.96);border-color:rgba(139,124,255,.35)}.lesson-node.locked{opacity:.45;cursor:not-allowed}.lesson-node.completed{border-left-color:var(--green)}.lesson-node.current{border-left-color:var(--violet);box-shadow:0 0 0 1px rgba(139,124,255,.12),0 18px 40px rgba(0,0,0,.2)}.node-icon{width:58px;height:58px;border-radius:18px;background:linear-gradient(145deg,rgba(139,124,255,.22),rgba(86,215,255,.09));display:grid;place-items:center;font-size:25px;border:1px solid rgba(139,124,255,.18)}.lesson-node h3{margin:0 0 6px;font-size:17px}.lesson-node p{margin:0;color:var(--muted);font-size:13px}.node-meta{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.pill{font-size:11px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.055);border:1px solid var(--line);color:#cbd3e1;white-space:nowrap}.progress-ring{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--green) var(--progress),rgba(255,255,255,.08) 0);position:relative}.progress-ring:after{content:'';position:absolute;inset:5px;border-radius:50%;background:#121725}.progress-ring span{z-index:1;font-size:10px;font-weight:800}.panel{padding:26px}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.mini-card{padding:19px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025)}.mini-card h3,.mini-card h4{margin:0 0 8px}.mini-card p{margin:0;color:var(--muted);line-height:1.55;font-size:13px}.coverage{margin-top:28px}.coverage-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.coverage-item{padding:13px;border-radius:15px;border:1px solid var(--line);background:rgba(255,255,255,.025)}.coverage-item strong{display:block;font-size:12px}.coverage-item small{color:var(--muted);font-size:11px}.view-heading{margin-bottom:22px}.view-heading h1{font-family:Inter;font-size:38px;letter-spacing:-.03em;margin:0 0 8px}.view-heading p{color:var(--muted);margin:0;max-width:800px;line-height:1.6}.formula-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.formula-card{padding:20px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.027)}.formula-card h3{font-size:15px;margin:0 0 12px}.formula{padding:14px;border-radius:14px;background:#0b0f1b;overflow-x:auto;color:#eaf0ff}.formula-card p{font-size:12px;color:var(--muted);line-height:1.55}.lesson-screen{max-width:880px;margin:0 auto}.lesson-top{display:flex;align-items:center;gap:14px;margin-bottom:22px}.lesson-top .close{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.04);color:#fff;cursor:pointer}.lesson-progress{flex:1;height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}.lesson-progress i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan));border-radius:999px;transition:.3s;width:0}.lesson-counter{font-size:12px;color:var(--muted)}.step-card{padding:clamp(24px,5vw,46px);border:1px solid var(--line);border-radius:28px;background:linear-gradient(150deg,#141a2a,#0e1320);box-shadow:var(--shadow);min-height:540px;display:flex;flex-direction:column}.step-tag{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--cyan);font-weight:800}.step-card h1{font-family:Inter;font-size:clamp(29px,5vw,46px);line-height:1.06;letter-spacing:-.035em;margin:12px 0 18px}.step-card h2{font-family:Inter;font-size:28px;margin:12px 0 17px}.step-card p,.step-card li{color:#c5cede;line-height:1.68}.step-card strong{color:#fff}.big-math{font-size:clamp(19px,3vw,28px);margin:22px 0;padding:20px;background:#090d18;border:1px solid rgba(139,124,255,.18);border-radius:17px;text-align:center;overflow-x:auto}.callout{padding:16px 18px;border-left:3px solid var(--green);background:rgba(103,232,166,.07);border-radius:0 14px 14px 0;margin:18px 0;color:#d9f9e8}.analogy{padding:18px;border-radius:18px;background:linear-gradient(135deg,rgba(255,200,87,.10),rgba(255,115,199,.06));border:1px solid rgba(255,200,87,.18);margin:18px 0}.analogy span{display:block;font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:800;letter-spacing:.1em;margin-bottom:6px}.step-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:24px}.choices{display:grid;gap:11px;margin-top:22px}.choice{padding:15px 16px;border-radius:15px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:#f6f8ff;text-align:left;cursor:pointer;font-weight:600;transition:.18s}.choice:hover{border-color:rgba(139,124,255,.7);transform:translateY(-1px)}.choice.correct{border-color:var(--green);background:rgba(103,232,166,.10)}.choice.wrong{border-color:var(--red);background:rgba(255,107,122,.08)}.feedback{display:none;margin-top:14px;padding:14px 16px;border-radius:14px;font-size:13px;line-height:1.55}.feedback.show{display:block}.feedback.good{background:rgba(103,232,166,.09);color:#c8f7de}.feedback.bad{background:rgba(255,107,122,.09);color:#ffd3d8}.answer-input{width:100%;margin-top:20px;padding:16px;border-radius:15px;border:1px solid var(--line);background:#090d18;color:#fff;outline:none}.answer-input:focus{border-color:var(--violet)}.video-card{margin:22px 0;padding:20px;border:1px solid rgba(86,215,255,.2);border-radius:18px;background:rgba(86,215,255,.05)}.video-card a{color:var(--cyan);font-weight:800;text-decoration:none}.practice-list{display:grid;gap:12px;margin-top:20px}.practice{padding:16px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.025)}.practice summary{cursor:pointer;font-weight:700}.practice div{color:var(--muted);font-size:13px;line-height:1.6;padding-top:12px}.proof-box{margin-top:18px;padding:18px;border:1px solid rgba(139,124,255,.22);border-radius:17px;background:rgba(139,124,255,.055)}.proof-box h4{margin:0 0 8px}.proof-template{display:grid;gap:10px;margin-top:14px}.proof-line{padding:12px;border-radius:12px;background:#0b0f1b;border:1px solid var(--line);font-size:13px}.badge-row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.badge{padding:7px 10px;border-radius:999px;font-size:11px;background:rgba(139,124,255,.09);border:1px solid rgba(139,124,255,.2);color:#cbc4ff}.boss-card{padding:24px;border-radius:22px;border:1px solid var(--line);background:linear-gradient(145deg,rgba(255,115,199,.08),rgba(139,124,255,.07))}.boss-card h2{margin-top:0}.question-bank{display:grid;gap:14px}.bank-q{padding:18px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025)}.bank-q h4{margin:0 0 9px}.bank-q p{color:var(--muted);font-size:13px;line-height:1.55}.reset-btn{margin-top:20px;color:#ffb8c0;border:1px solid rgba(255,107,122,.25);background:transparent;padding:10px 13px;border-radius:12px;cursor:pointer}.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,30px);opacity:0;padding:12px 18px;border-radius:13px;background:#f6f8ff;color:#0b0f18;font-weight:800;font-size:13px;z-index:60;transition:.25s;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}.mobile-nav{display:none}
+@media(max-width:980px){.shell{grid-template-columns:1fr}.sidebar{display:none}.main{padding:28px 22px 100px}.hero{grid-template-columns:1fr}.coverage-grid{grid-template-columns:repeat(2,1fr)}.mobile-nav{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);bottom:0;left:0;right:0;z-index:40;background:rgba(9,11,20,.93);backdrop-filter:blur(18px);border-top:1px solid var(--line);padding:8px max(8px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}.mobile-nav button{border:0;background:none;color:var(--muted);display:grid;place-items:center;gap:2px}.mobile-nav button.active{color:#fff}.mobile-nav span{font-size:19px}.mobile-nav small{font-size:9px}.formula-list,.grid-2,.grid-3{grid-template-columns:1fr}}
+@media(max-width:620px){.topbar{height:68px;padding:0 14px}.brand small{display:none}.brand-mark{width:38px;height:38px}.stats{gap:4px}.stat{min-width:auto;padding:7px 8px}.stat small{display:none}.stat span{grid-row:auto}.main{padding:22px 14px 92px}.hero-card{padding:25px}.hero h1{font-size:39px}.lesson-node{grid-template-columns:55px 1fr;padding:15px}.node-icon{width:48px;height:48px}.node-meta{grid-column:2;justify-content:flex-start}.progress-ring{display:none}.step-card{min-height:calc(100vh - 170px);padding:24px 19px;border-radius:22px}.step-footer{position:sticky;bottom:70px;background:linear-gradient(0deg,#0e1320 75%,transparent);padding-top:26px}.coverage-grid{grid-template-columns:1fr 1fr}.view-heading h1{font-size:31px}}
+
+</style>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <div class="bg-orb orb-one"></div><div class="bg-orb orb-two"></div>
+  <header class="topbar">
+    <button class="brand" data-view="home" aria-label="Go home">
+      <span class="brand-mark">M</span>
+      <span><strong>M2500 Quest</strong><small>Test 1, zero to proof-ready</small></span>
+    </button>
+    <div class="stats" aria-label="Study stats">
+      <div class="stat"><span>⚡</span><strong id="xpStat">0</strong><small>XP</small></div>
+      <div class="stat"><span>🔥</span><strong id="streakStat">1</strong><small>day</small></div>
+      <div class="stat"><span>💙</span><strong id="heartStat">5</strong><small>focus</small></div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <nav>
+        <button class="nav-item active" data-view="home"><span>⌂</span> Journey</button>
+        <button class="nav-item" data-view="vault"><span>∑</span> Formula Vault</button>
+        <button class="nav-item" data-view="dojo"><span>✎</span> Proof Dojo</button>
+        <button class="nav-item" data-view="boss"><span>◆</span> Boss Battle</button>
+      </nav>
+      <div class="deadline-card">
+        <span class="eyebrow">TEST DAY</span>
+        <strong>Thursday, Sep 24</strong>
+        <p id="deadlineCopy">Build the foundation first, then attack the sample.</p>
+        <div class="deadline-bar"><i id="deadlineBar"></i></div>
+      </div>
+      <div class="source-note">Built around your Test 1 sample, HW0 to HW2, and the relevant Hughes chapters.</div>
+    </aside>
+
+    <main id="app" class="main"></main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <button class="active" data-view="home"><span>⌂</span><small>Journey</small></button>
+    <button data-view="vault"><span>∑</span><small>Vault</small></button>
+    <button data-view="dojo"><span>✎</span><small>Proofs</small></button>
+    <button data-view="boss"><span>◆</span><small>Test</small></button>
+  </nav>
+
+  <div id="toast" class="toast" role="status"></div>
+<script>
+const YT = {
+  vectors: 'https://www.youtube.com/watch?v=fNk_zzaMoSs',
+  transforms: 'https://www.youtube.com/watch?v=kYB8IZa5AuE',
+  subspaces: 'https://www.youtube.com/watch?v=pMFv6liWK4M',
+  perps: 'https://www.youtube.com/watch?v=QOTjdgmNqlg',
+  cauchy: 'https://www.youtube.com/watch?v=r2PogGDl8_U'
+};
+
+const lessons = [
+  {
+    id:'vectors', icon:'↗', title:'Vectors from absolute zero', subtitle:'What the notation means before we do any “linear algebra.”', time:'25 min', xp:90, problems:'Foundation + HW0/HW1',
+    steps:[
+      {type:'learn', tag:'START HERE', title:'A vector is just a list of numbers', body:`<p>Forget the scary brackets. A vector like \\(v=\\begin{bmatrix}3\\\\4\\end{bmatrix}\\) is a list of coordinates. Geometrically, you can picture it as an arrow that moves <strong>3 right and 4 up</strong>.</p><div class="analogy"><span>mental model</span>A point tells you where you are. A vector tells you how to move.</div><p>In \\(\\mathbb R^n\\), the \\(n\\) simply tells you how many coordinates the vector has. \\(\\mathbb R^2\\) means 2 coordinates, \\(\\mathbb R^3\\) means 3, and \\(\\mathbb R^4\\) means 4.</p>`},
+      {type:'quiz', tag:'QUICK CHECK', title:'Decode the notation', prompt:'Which vector lives in \\(\\mathbb R^3\\)?', choices:['\\([2,5]\\)','\\([1,-4,7]\\)','\\([3,0,1,9]\\)','Only the zero vector'], answer:1, explain:'R³ means exactly three real-number coordinates.'},
+      {type:'learn', tag:'CORE MOVE', title:'Add coordinate by coordinate', body:`<p>Vector addition is not mysterious. Match the positions and add.</p><div class="big-math">\\[\\begin{bmatrix}2\\\\-1\\\\4\\end{bmatrix}+\\begin{bmatrix}3\\\\5\\\\-2\\end{bmatrix}=\\begin{bmatrix}5\\\\4\\\\2\\end{bmatrix}\\]</div><p>Scalar multiplication means multiply every coordinate by the same ordinary number.</p><div class="big-math">\\[-2\\begin{bmatrix}1\\\\3\\end{bmatrix}=\\begin{bmatrix}-2\\\\-6\\end{bmatrix}\\]</div>`},
+      {type:'quiz', tag:'QUICK CHECK', title:'One easy win', prompt:'Compute \\(2[3,-1] + [1,4]\\).', choices:['\\([7,2]\\)','\\([4,3]\\)','\\([7,3]\\)','\\([6,-2]\\)'], answer:0, explain:'First 2[3,-1] = [6,-2]. Then add [1,4] to get [7,2].'},
+      {type:'learn', tag:'LANGUAGE', title:'Zero vector and standard basis', body:`<p>The <strong>zero vector</strong> is all zeros. Adding it changes nothing. In \\(\\mathbb R^3\\), \\(0=[0,0,0]\\).</p><p>The standard basis vectors are the coordinate directions:</p><div class="big-math">\\[e_1=\\begin{bmatrix}1\\\\0\\\\0\\end{bmatrix},\\quad e_2=\\begin{bmatrix}0\\\\1\\\\0\\end{bmatrix},\\quad e_3=\\begin{bmatrix}0\\\\0\\\\1\\end{bmatrix}\\]</div><div class="callout">Why care? Later, the columns of a transformation matrix will literally be \\(T(e_1),T(e_2),...\\).</div>`},
+      {type:'video', tag:'WATCH', title:'Make vectors feel visual', url:YT.vectors, label:'3Blue1Brown, Vectors, Chapter 1', why:'Watch this once for intuition. Do not try to take perfect notes.'},
+      {type:'practice', tag:'PRACTICE', title:'Tiny reps before moving on', items:[
+        ['If \\(u=[1,2,3]\\) and \\(v=[4,-1,2]\\), find \\(u+v\\).','[5,1,5].'],
+        ['Find \\(-3[2,0,-1]\\).','[-6,0,3].'],
+        ['Write \\([5,-2]\\) using \\(e_1,e_2\\).','\\(5e_1-2e_2\\).']
+      ]}
+    ]
+  },
+  {
+    id:'dot', icon:'•', title:'Dot products, lengths, orthogonality', subtitle:'The operation that powers half of this test.', time:'35 min', xp:120, problems:'HW0 4–7, HW1 1, 5–8',
+    steps:[
+      {type:'learn',tag:'CORE',title:'Dot product means multiply, then add',body:`<p>For \\(x=[x_1,...,x_n]\\) and \\(y=[y_1,...,y_n]\\),</p><div class="big-math">\\[x\\cdot y=x_1y_1+\\cdots+x_ny_n\\]</div><p>Example: \\([2,3]\\cdot[4,-1]=2(4)+3(-1)=5\\).</p><div class="callout">Dot product takes two vectors and returns one ordinary number.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Multiply, then add',prompt:'What is \\([3,-4,5]\\cdot[-1,0,1]\\)?',choices:['2','-8','8','0'],answer:0,explain:'3(-1) + (-4)(0) + 5(1) = -3 + 0 + 5 = 2.'},
+      {type:'learn',tag:'CORE',title:'Length comes from dotting a vector with itself',body:`<div class="big-math">\\[\\|x\\|=\\sqrt{x\\cdot x}=\\sqrt{x_1^2+\\cdots+x_n^2}\\]</div><p>So \\(\\|[3,4]\\|=5\\). This is just the Pythagorean theorem in vector form.</p><p>Your homework emphasizes four dot-product properties:</p><ul><li>Symmetry: \\(x\\cdot y=y\\cdot x\\)</li><li>Additivity: \\(x\\cdot(y+z)=x\\cdot y+x\\cdot z\\)</li><li>Homogeneity: \\(x\\cdot(cy)=c(x\\cdot y)\\)</li><li>Positive definiteness: \\(x\\cdot x\\ge0\\), with equality only for \\(x=0\\)</li></ul>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Perpendicular in one second',prompt:'If \\(u\\cdot v=0\\) and both vectors are nonzero, what does that mean?',choices:['They are parallel','They have equal length','They are perpendicular','They are the same vector'],answer:2,explain:'Dot product 0 is the algebraic test for orthogonality, meaning perpendicular.'},
+      {type:'learn',tag:'PROOF MOVE',title:'The “choose x = y” trick',body:`<p>A homework-style statement says: if \\(x\\cdot y=0\\) for <strong>every</strong> \\(x\\in\\mathbb R^n\\), prove \\(y=0\\).</p><p>Because the claim is true for every \\(x\\), you are allowed to choose the most useful one. Pick \\(x=y\\).</p><div class="big-math">\\[y\\cdot y=\\|y\\|^2=0\\implies y=0\\]</div><div class="analogy"><span>proof instinct</span>Whenever you see “for every x,” ask, “What sneaky choice of x makes the statement collapse?”</div>`},
+      {type:'practice',tag:'PRACTICE',title:'Dot-product reps',items:[
+        ['Find the length of \\([1,2,2]\\).','\\(\\sqrt{1+4+4}=3\\).'],
+        ['Are \\([2,1]\\) and \\([1,-2]\\) orthogonal?','Yes, because 2(1)+1(-2)=0.'],
+        ['If \\(x\\cdot y=x\\cdot z\\) for every x, what should you study?','Move terms: \\(x\\cdot(y-z)=0\\) for every x, then choose x=y-z.']
+      ]}
+    ]
+  },
+  {
+    id:'angles', icon:'∠', title:'Angles, projections, Cauchy-Schwarz', subtitle:'Sample Problems 1 and 5, from zero.', time:'45 min', xp:150, problems:'Sample 1, 4, 5 + HW1 6–8',
+    steps:[
+      {type:'learn',tag:'ANGLE',title:'Dot product secretly measures angle',body:`<p>For nonzero vectors,</p><div class="big-math">\\[\\cos\\theta=\\frac{x\\cdot y}{\\|x\\|\\|y\\|}\\]</div><p>So the workflow is always: <strong>dot product, both lengths, divide, inverse cosine</strong>.</p><div class="callout">If the dot product is 0, you do not need a calculator. The angle is \\(\\pi/2\\), or 90°.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Set up the angle',prompt:'For \\(x=[1,0]\\), \\(y=[1,1]\\), what is \\(\\cos\\theta\\)?',choices:['0','1/2','\\(1/\\sqrt2\\)','\\(\\sqrt2\\)'],answer:2,explain:'x·y=1, ||x||=1, ||y||=√2, so cosθ=1/√2.'},
+      {type:'learn',tag:'PROJECTION',title:'Projection is the shadow of one vector on another',body:`<p>Projection of \\(v\\) onto \\(w\\):</p><div class="big-math">\\[\\operatorname{proj}_w(v)=\\frac{v\\cdot w}{w\\cdot w}w\\]</div><div class="analogy"><span>mental model</span>Shine a light perpendicular to w. The shadow of v along the w-line is the projection.</div><p>Common mistake: the denominator is \\(w\\cdot w=\\|w\\|^2\\), not just \\(\\|w\\|\\).</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Projection denominator',prompt:'In \\(\\operatorname{proj}_w(v)\\), which denominator is correct?',choices:['\\(v\\cdot v\\)','\\(\\|w\\|\\)','\\(w\\cdot w\\)','\\(v\\cdot w\\)'],answer:2,explain:'Projection uses (v·w)/(w·w) times w.'},
+      {type:'learn',tag:'THEOREM',title:'Cauchy-Schwarz puts a ceiling on dot products',body:`<div class="big-math">\\[|x\\cdot y|\\le \\|x\\|\\|y\\|\\]</div><p>This says the absolute dot product can never exceed the product of the lengths. Your sample asks you to <strong>state it in complete sentences</strong> and use it inside an inequality proof.</p><p>A useful consequence is \\(x\\cdot y\\le\\|x\\|\\|y\\|\\).</p>`},
+      {type:'video',tag:'WATCH',title:'See the Cauchy-Schwarz proof once',url:YT.cauchy,label:'Khan Academy, Proof of Cauchy-Schwarz',why:'You mainly need to understand what the inequality lets you replace or bound.'},
+      {type:'learn',tag:'GEOMETRY PROOF',title:'Equal parallelogram sides make perpendicular diagonals',body:`<p>If adjacent side vectors are \\(u\\) and \\(v\\), the diagonals point in directions \\(u+v\\) and \\(u-v\\).</p><div class="big-math">\\[(u+v)\\cdot(u-v)=\\|u\\|^2-\\|v\\|^2\\]</div><p>If the side lengths are equal, \\(\\|u\\|=\\|v\\|\\), the expression is 0. Therefore the diagonals are orthogonal.</p><div class="callout">This is the kind of proof you should learn as a sequence of moves, not as a paragraph to memorize.</div>`},
+      {type:'practice',tag:'PRACTICE',title:'Test-level reps',items:[
+        ['Find the angle setup for v=[-1,0,1], w=[3,4,5].','Compute v·w=2, ||v||=√2, ||w||=√50. Then \\(\\theta=\\arccos(2/(\\sqrt2\\sqrt{50}))\\).'],
+        ['Project [2,1] onto [1,0].','The result is [2,0].'],
+        ['Why does x−proj_y(x) end up orthogonal to y?','Dot it with y, substitute the projection formula, and the two terms cancel.']
+      ]}
+    ]
+  },
+  {
+    id:'geometry', icon:'⌖', title:'Lines, planes, hyperplanes, affine geometry', subtitle:'Turn equations into pictures and pictures into equations.', time:'45 min', xp:150, problems:'Sample 1(iii), 7, 8, 20',
+    steps:[
+      {type:'learn',tag:'LINE',title:'Every line is “start + move”',body:`<div class="big-math">\\[x=p+tu\\]</div><p><strong>p</strong> is a point on the line. <strong>u</strong> is the direction. <strong>t</strong> is any real number.</p><p>If the line passes through the origin, p=0, so it becomes \\(x=tu\\).</p><div class="callout">A line through the origin is linear. A shifted line is usually affine, not linear.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Linear or affine?',prompt:'Is \\(x=[1,2]+t[3,4]\\) a linear subspace?',choices:['Yes, every line is linear','No, it does not pass through 0','Yes, because t is real','Only if t > 0'],answer:1,explain:'A linear subspace must contain the zero vector.'},
+      {type:'learn',tag:'PLANE',title:'A plane equation gives you its normal vector for free',body:`<p>If a plane is \\(ax+by+cz=d\\), then</p><div class="big-math">\\[n=\\begin{bmatrix}a\\\\b\\\\c\\end{bmatrix}\\]</div><p>is perpendicular to the plane. So for \\(2x-y+3z=7\\), the normal is \\([2,-1,3]\\).</p><p>That means a line perpendicular to this plane uses \\([2,-1,3]\\) as its direction.</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Parallel plane',prompt:'A plane parallel to \\(2x-y+3z=7\\) must have which left side?',choices:['\\(x+y+z\\)','\\(2x-y+3z\\)','\\(-y+3z\\)','Anything at all'],answer:1,explain:'Parallel planes share the same normal direction, so the coefficients can be the same.'},
+      {type:'learn',tag:'AFFINE',title:'Affine = linear object shifted somewhere else',body:`<p>An affine subspace looks like</p><div class="big-math">\\[W=w+V=\\{w+v:v\\in V\\}\\]</div><p>where V is a linear subspace. A shifted line, plane, or higher-dimensional hyperplane is affine.</p><p>A useful criterion from the textbook: an affine subspace becomes linear exactly when it contains the origin.</p>`},
+      {type:'learn',tag:'VECTOR GEOMETRY',title:'Points between points are weighted combinations',body:`<p>If D is two-thirds of the way from A to B, then</p><div class="big-math">\\[D=A+\\frac23(B-A)=\\frac13A+\\frac23B\\]</div><p>Midpoint of B and C is \\(E=(B+C)/2\\). These formulas are how you attack Sample Problem 7. Choose A as your reference point, express everything using two side vectors, then compare.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Geometry reps',items:[
+        ['Line through P=[1,2,3] perpendicular to 2x−y+3z=7?','\\([x,y,z]^T=[1,2,3]^T+t[2,-1,3]^T\\).'],
+        ['Plane through P=[1,2,3] parallel to 2x−y+3z=7?','Use 2x−y+3z=d and plug P in: d=7, so it happens to be the same plane.'],
+        ['Line through points P and Q?','Use direction Q−P, then x=P+t(Q−P).']
+      ]}
+    ]
+  },
+  {
+    id:'proofs', icon:'∴', title:'Proof survival kit', subtitle:'Stop staring at “prove that” and learn what to do first.', time:'35 min', xp:130, problems:'HW0, HW1, HW2 proof language',
+    steps:[
+      {type:'learn',tag:'PROOF LANGUAGE',title:'A proof is just a chain where every move is allowed',body:`<p>Your course expects proofs whenever a problem gives a mathematical statement and asks you to establish it. The trick is recognizing the <strong>shape</strong> of the statement.</p><div class="proof-template"><div class="proof-line"><strong>Direct:</strong> assume the hypothesis, use definitions, reach the conclusion.</div><div class="proof-line"><strong>Contradiction:</strong> assume the desired conclusion is false, derive something impossible.</div><div class="proof-line"><strong>Set equality:</strong> prove A⊆B, then prove B⊆A.</div><div class="proof-line"><strong>Iff:</strong> prove forward direction, then reverse direction.</div><div class="proof-line"><strong>False statement:</strong> one valid counterexample kills it.</div></div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'How do you prove two sets are equal?',prompt:'To prove \\(A=B\\), the safest standard structure is:',choices:['Show they look similar','Prove A⊆B and B⊆A','Test one example','Assume A=B'],answer:1,explain:'Double inclusion is the standard set-equality proof template.'},
+      {type:'learn',tag:'QUANTIFIERS',title:'Read “for every” and “there exists” like instructions',body:`<p><strong>For every x</strong> means your argument must work for an arbitrary x, but it also means you can make a strategic choice when a hypothesis says something holds for every x.</p><p><strong>There exists x</strong> means you can win by constructing one. Sample 6(ii) asks you to produce an x. The smart move will be to choose \\(x=By\\).</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Counterexample logic',prompt:'To prove “the union of any two subspaces is a subspace” is false, you need:',choices:['A 10-line proof','One pair of subspaces whose union fails closure','Three examples','A determinant'],answer:1,explain:'A universal claim is false if one counterexample exists.'},
+      {type:'learn',tag:'WRITE IT',title:'The professor-friendly proof rhythm',body:`<p>Use this rhythm until it becomes automatic:</p><div class="proof-template"><div class="proof-line">1. “Let x be arbitrary in ...”</div><div class="proof-line">2. State what the definition gives you.</div><div class="proof-line">3. Do the algebra or vector operation.</div><div class="proof-line">4. State why the result belongs to the target set.</div><div class="proof-line">5. Finish: “Therefore ...”</div></div><div class="callout">You do not need fancy prose. You need a logically complete chain.</div>`},
+      {type:'practice',tag:'PRACTICE',title:'Proof instincts',items:[
+        ['If sx+ty=0 and x,y are nonparallel, why might contradiction work?','Assume s≠0 or t≠0. Solve for one vector as a scalar multiple of the other, contradicting nonparallelness.'],
+        ['How do you prove a set is not a subspace quickly?','Find one failed condition, often 0 is missing or closure under addition/scalar multiplication fails.'],
+        ['How do you prove A=B when A and B are sets?','Two containments. Start with arbitrary x∈A, prove x∈B, then reverse.']
+      ]}
+    ]
+  },
+  {
+    id:'subspaces', icon:'⊂', title:'Subspaces, spans, kernels', subtitle:'The most reusable proof template on your test.', time:'50 min', xp:180, problems:'Sample 3, 13–15 + HW1/HW2',
+    steps:[
+      {type:'learn',tag:'THE 3 TESTS',title:'A subspace has exactly three jobs',body:`<div class="big-math">\\[\\text{LS1: }0\\in V\\qquad \\text{LS2: }x,y\\in V\\Rightarrow x+y\\in V\\qquad \\text{LS3: }x\\in V,c\\in\\mathbb R\\Rightarrow cx\\in V\\]</div><p>Say it in plain English: <strong>contains zero, closed under addition, closed under scaling.</strong></p><div class="analogy"><span>mental model</span>A subspace is a world where vector addition and scaling never kick you outside the world.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Fastest failure',prompt:'Is \\(L=\\{(x,y):x+y=1\\}\\) a subspace?',choices:['Yes','No, zero is not in it','No, because it is a line','Only in R³'],answer:1,explain:'(0,0) gives 0≠1, so LS1 fails immediately.'},
+      {type:'learn',tag:'KERNEL',title:'Why T(x)=0 automatically creates a subspace',body:`<p>Suppose T is linear and \\(V=\\{x:T(x)=0\\}\\). This is the <strong>kernel</strong>.</p><div class="proof-template"><div class="proof-line">Zero: \\(T(0)=0\\), so 0∈V.</div><div class="proof-line">Addition: if T(x)=0 and T(y)=0, then \\(T(x+y)=T(x)+T(y)=0\\).</div><div class="proof-line">Scaling: \\(T(cx)=cT(x)=0\\).</div></div><p>That is Sample Problem 3 almost mechanically once you know the template.</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Which property are you using?',prompt:'In \\(T(cx)=cT(x)\\), what matters?',choices:['T is affine','T is linear','T is orthogonal','c=0'],answer:1,explain:'Scalar compatibility is one of the two defining properties of linear transformations.'},
+      {type:'learn',tag:'SPAN',title:'Span means every possible linear combination',body:`<div class="big-math">\\[\\operatorname{span}\\{v_1,...,v_k\\}=\\{a_1v_1+\\cdots+a_kv_k:a_i\\in\\mathbb R\\}\\]</div><p>In R², two nonparallel vectors span the whole plane. If they are parallel and nonzero, their span is one line through the origin. In R³, two nonparallel vectors span a plane through the origin.</p><p>Your HW2 proof says the span is the <strong>smallest subspace containing those vectors</strong>.</p>`},
+      {type:'video',tag:'WATCH',title:'Subspace intuition',url:YT.subspaces,label:'Khan Academy, Introduction to linear subspaces of Rⁿ',why:'Watch after the three-condition test makes sense. The goal is to see why “through the origin” matters.'},
+      {type:'learn',tag:'MATRIX SUBSPACES',title:'Symmetric and skew-symmetric sets use the same template',body:`<p>Symmetric means \\(A^T=A\\). Skew-symmetric means \\(A^T=-A\\).</p><p>For symmetric matrices, addition works because</p><div class="big-math">\\[(A+B)^T=A^T+B^T=A+B\\]</div><p>and scaling works because \\((cA)^T=cA^T=cA\\). Do the same pattern with minus signs for skew-symmetric matrices.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Subspace reps',items:[
+        ['Is the union U∪V always a subspace?','No. Example: x-axis union y-axis. [1,0] and [0,1] are inside, but their sum [1,1] is not.'],
+        ['Is U∩V always a subspace?','Yes. Verify zero, addition, and scaling using that both U and V are subspaces.'],
+        ['Is U+V={u+v} a subspace?','Yes. Pair the U parts together and the V parts together under addition and scaling.'],
+        ['When does adding v to a spanning list not enlarge its span?','Exactly when v is already in the original span.']
+      ]}
+    ]
+  },
+  {
+    id:'perps', icon:'⊥', title:'Orthogonal complements and hyperplanes', subtitle:'Learn the “perp” notation without getting lost.', time:'40 min', xp:160, problems:'Sample 10 + HW2 Problem 1',
+    steps:[
+      {type:'learn',tag:'DEFINITION',title:'V⊥ means everything perpendicular to all of V',body:`<div class="big-math">\\[V^\\perp=\\{x\\in\\mathbb R^n:x\\cdot v=0\\text{ for every }v\\in V\\}\\]</div><p>If V is a line through the origin in R³, V⊥ is the plane through the origin perpendicular to that line.</p><div class="callout">The phrase “for every v in V” is part of the definition. Do not drop it in proofs.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Perp of a line in R³',prompt:'Geometrically, the orthogonal complement of a nonzero line through 0 in R³ is usually:',choices:['Another line','A plane through 0','All of R³','One point not at 0'],answer:1,explain:'All vectors perpendicular to one direction form a plane through the origin.'},
+      {type:'learn',tag:'HW2 CORE',title:'Four facts your homework wants you to prove',body:`<ul><li>\\(V^\\perp\\) is a subspace.</li><li>\\(V\\cap V^\\perp=\\{0\\}\\).</li><li>\\(V\\subseteq(V^\\perp)^\\perp\\).</li><li>If \\(V\\subseteq W\\), then \\(W^\\perp\\subseteq V^\\perp\\).</li></ul><p>Notice the last one reverses direction. A bigger original space gives you more things you must be perpendicular to, so fewer vectors survive.</p>`},
+      {type:'learn',tag:'SAMPLE 10',title:'How to prove (U+V)⊥ = U⊥ ∩ V⊥',body:`<p>This is a set equality, so use two containments.</p><div class="proof-template"><div class="proof-line"><strong>→</strong> Let x∈(U+V)⊥. Since u=u+0 is in U+V, x·u=0. So x∈U⊥. Similarly x∈V⊥.</div><div class="proof-line"><strong>←</strong> Let x∈U⊥∩V⊥. For any u∈U,v∈V, x·(u+v)=x·u+x·v=0.</div></div><p>Therefore x is perpendicular to every vector in U+V.</p>`},
+      {type:'video',tag:'WATCH',title:'Orthogonal complements visually',url:YT.perps,label:'Khan Academy, Orthogonal Complements',why:'Use this after the definition. It helps connect the symbols to lines and planes.'},
+      {type:'practice',tag:'PRACTICE',title:'Perp reps',items:[
+        ['Why is V∩V⊥ only {0}?','If x lies in both, x is perpendicular to itself, so x·x=||x||²=0, hence x=0.'],
+        ['Why does V⊆W imply W⊥⊆V⊥?','Anything perpendicular to every vector in the larger W is certainly perpendicular to every vector in its subset V.'],
+        ['Prove V⊥ is a subspace in one sentence per condition.','0·v=0. (x+y)·v=x·v+y·v=0. (cx)·v=c(x·v)=0.']
+      ]}
+    ]
+  },
+  {
+    id:'matrices', icon:'▦', title:'Matrices, multiplication, inverses, determinants', subtitle:'The algebra engine behind transformations.', time:'55 min', xp:190, problems:'Sample 6, 9, 12, 21, 22 + HW2 5',
+    steps:[
+      {type:'learn',tag:'MATRIX BASICS',title:'Matrix multiplication is row by column',body:`<p>If A is m×n and B is n×p, then AB exists and is m×p. The inside dimensions must match.</p><div class="big-math">\\[\\begin{bmatrix}a&b\\end{bmatrix}\\begin{bmatrix}x\\\\y\\end{bmatrix}=ax+by\\]</div><p>Each entry of AB is a dot product between a row of A and a column of B.</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Dimension check',prompt:'If A is 3×2 and B is 2×5, what size is AB?',choices:['2×2','3×5','5×3','AB does not exist'],answer:1,explain:'The inner 2s match, and the outer dimensions 3 and 5 remain.'},
+      {type:'learn',tag:'WARNING',title:'AB usually does not equal BA',body:`<p>Matrix multiplication is associative, but generally <strong>not commutative</strong>.</p><div class="analogy"><span>mental model</span>Putting on socks then shoes is not the same as shoes then socks. Order matters.</div><p>Your sample literally asks for a 2×2 counterexample, so keep one simple pair in your back pocket.</p>`},
+      {type:'learn',tag:'INVERSE',title:'An inverse undoes a matrix',body:`<div class="big-math">\\[AA^{-1}=A^{-1}A=I\\]</div><p>I is the identity matrix, the matrix version of multiplying by 1.</p><p>Sample 12 uses a gorgeous one-line associativity trick. If AB=I and CA=I, then:</p><div class="big-math">\\[C=C(AB)=(CA)B=B\\]</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Use AB=I intelligently',prompt:'If AB=I and Bx=0, what should you do?',choices:['Take a determinant immediately','Multiply Bx=0 by A on the left','Divide by B','Transpose x'],answer:1,explain:'A(Bx)=(AB)x=Ix=x, while A0=0, so x=0.'},
+      {type:'learn',tag:'ONTO TRICK',title:'Existence proof from AB=I',body:`<p>To prove that for every y there exists x with Ax=y, do not solve a system. <strong>Construct x.</strong></p><div class="big-math">\\[x=By\\quad\\Rightarrow\\quad Ax=A(By)=(AB)y=y\\]</div><p>This is a classic “there exists” proof. You win by naming the object.</p>`},
+      {type:'learn',tag:'DETERMINANTS',title:'For 2×2, determinant is ad−bc',body:`<div class="big-math">\\[\\det\\begin{bmatrix}a&b\\\\c&d\\end{bmatrix}=ad-bc\\]</div><p>The key product rule used in your homework and sample is</p><div class="big-math">\\[\\det(AB)=\\det(A)\\det(B)\\]</div><p>That instantly gives \\(\\det(AB)=\\det(BA)\\) because ordinary real-number multiplication is commutative.</p>`},
+      {type:'learn',tag:'POLYNOMIAL TRICK',title:'A sneaky inverse from A²−3A+2I=0',body:`<p>Rearrange:</p><div class="big-math">\\[A^2-3A+2I=0\\Rightarrow A(3I-A)=2I\\]</div><p>So</p><div class="big-math">\\[A^{-1}=\\frac12(3I-A)\\]</div><p>Your HW2 uses this to show A is invertible without computing a determinant.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Matrix reps',items:[
+        ['Why is det(RθA)=det(A) for a rotation Rθ?','det(RθA)=det(Rθ)det(A), and det(Rθ)=1.'],
+        ['If AB=I, how do you show Bx=0 implies x=0?','Multiply by A on the left.'],
+        ['If AB=I, how do you show A hits every y?','For arbitrary y, choose x=By.'],
+        ['What one law lets C=C(AB)=(CA)B?','Associativity of matrix multiplication.']
+      ]}
+    ]
+  },
+  {
+    id:'transforms', icon:'⟳', title:'Linear transformations and rotations', subtitle:'Understand what matrices are actually doing.', time:'60 min', xp:210, problems:'Sample 2, 6, 11, 13, 17',
+    steps:[
+      {type:'learn',tag:'DEFINITION',title:'A linear transformation respects the two vector operations',body:`<div class="big-math">\\[T(x+y)=T(x)+T(y),\\qquad T(cx)=cT(x)\\]</div><p>That is the entire definition. From it, you can prove \\(T(0)=0\\) and that T respects any finite linear combination.</p><div class="callout">Linear transformations cannot randomly bend space. They preserve addition and scaling.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Is this linear?',prompt:'A function T is linear if it always satisfies:',choices:['T(x+y)=T(x)T(y)','T(x+y)=T(x)+T(y) and T(cx)=cT(x)','T(0)=1','T(x)=x²'],answer:1,explain:'Those are exactly LT1 and LT2.'},
+      {type:'learn',tag:'STANDARD MATRIX',title:'Columns = what T does to basis vectors',body:`<p>This is one of the most important facts in the course.</p><div class="big-math">\\[[T]=\\begin{bmatrix}|&|&&|\\\\T(e_1)&T(e_2)&\\cdots&T(e_n)\\\\|&|&&|\\end{bmatrix}\\]</div><p>To build a transformation matrix, transform \\(e_1,e_2,...\\) and place the answers as columns.</p>`},
+      {type:'video',tag:'WATCH',title:'Matrices as transformations',url:YT.transforms,label:'3Blue1Brown, Linear transformations and matrices',why:'This is the best conceptual bridge between “grid of numbers” and “movement of space.”'},
+      {type:'learn',tag:'ROTATION',title:'The 2D rotation matrix is worth knowing cold',body:`<div class="big-math">\\[R_\\theta=\\begin{bmatrix}\\cos\\theta&-\\sin\\theta\\\\\\sin\\theta&\\cos\\theta\\end{bmatrix}\\]</div><p>For a 3D rotation around an axis, the coordinate on that axis stays fixed. Around \\(x_3\\), rotate the \\(x_1x_2\\)-plane. Around \\(x_1\\), rotate the \\(x_2x_3\\)-plane.</p>`},
+      {type:'learn',tag:'3D ROTATIONS',title:'Build the exact matrices from the fixed axis',body:`<p>About the x₃-axis:</p><div class="big-math">\\[R_{x_3}(\\theta)=\\begin{bmatrix}\\cos\\theta&-\\sin\\theta&0\\\\\\sin\\theta&\\cos\\theta&0\\\\0&0&1\\end{bmatrix}\\]</div><p>About the x₁-axis:</p><div class="big-math">\\[R_{x_1}(\\theta)=\\begin{bmatrix}1&0&0\\\\0&\\cos\\theta&-\\sin\\theta\\\\0&\\sin\\theta&\\cos\\theta\\end{bmatrix}\\]</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Composition order',prompt:'For \\(S\\circ T\\), which matrix product is correct?',choices:['[T][S]','[S][T]','[S]+[T]','It depends on the vector'],answer:1,explain:'T acts first, so its matrix is closest to the vector. [S∘T]=[S][T].'},
+      {type:'learn',tag:'AFFINE IMAGE',title:'Linear maps send affine subspaces to affine subspaces',body:`<p>If \\(V=p+U\\), where U is a linear subspace, then</p><div class="big-math">\\[T(V)=T(p+U)=T(p)+T(U)\\]</div><p>T(U) is a linear subspace, so T(p)+T(U) is affine. That is the skeleton of Sample 13.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Transformation reps',items:[
+        ['What is the third column of a 3×3 standard matrix [T]?','T(e₃).'],
+        ['Why does the rightmost matrix act first in STx?','Because T multiplies x first, producing T(x), then S acts on that result.'],
+        ['How would you prove T(v1+...+vk)=T(v1)+...+T(vk)?','Use induction on k, with linearity in the induction step.']
+      ]}
+    ]
+  },
+  {
+    id:'orthomatrix', icon:'T', title:'Transpose, symmetric, skew, orthogonal matrices', subtitle:'Everything behind Sample Problems 11, 14, 15, and 16.', time:'45 min', xp:170, problems:'Sample 11, 14–16',
+    steps:[
+      {type:'learn',tag:'TRANSPOSE',title:'Transpose flips rows and columns',body:`<div class="big-math">\\[A=\\begin{bmatrix}1&2&3\\\\4&5&6\\end{bmatrix}\\Rightarrow A^T=\\begin{bmatrix}1&4\\\\2&5\\\\3&6\\end{bmatrix}\\]</div><p>A crucial product rule is \\((AB)^T=B^TA^T\\). Notice the order reverses.</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Shoe-sock for transpose',prompt:'Which is correct?',choices:['(AB)ᵀ=AᵀBᵀ','(AB)ᵀ=BᵀAᵀ','(AB)ᵀ=AB','(AB)ᵀ=A+B'],answer:1,explain:'Transpose reverses the order of a product.'},
+      {type:'learn',tag:'DEFINITIONS',title:'Three matrix personalities',body:`<div class="proof-template"><div class="proof-line"><strong>Symmetric:</strong> \\(A^T=A\\)</div><div class="proof-line"><strong>Skew-symmetric:</strong> \\(A^T=-A\\)</div><div class="proof-line"><strong>Orthogonal:</strong> \\(A^TA=I\\)</div></div><p>For an orthogonal matrix, \\(A^{-1}=A^T\\).</p>`},
+      {type:'learn',tag:'PRESERVATION',title:'Orthogonal transformations preserve dot products',body:`<p>If Q is orthogonal,</p><div class="big-math">\\[(Qu)\\cdot(Qv)=u^TQ^TQv=u^Tv=u\\cdot v\\]</div><p>Once dot products are preserved, lengths are preserved because \\(\\|u\\|^2=u\\cdot u\\). Angles are preserved because the angle formula depends only on dot products and lengths.</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Why lengths survive?',prompt:'If QᵀQ=I, then \\(\\|Qu\\|^2\\) equals:',choices:['0','u·u','Q','det(Q)'],answer:1,explain:'(Qu)·(Qu)=uᵀQᵀQu=uᵀu=u·u.'},
+      {type:'learn',tag:'PRODUCT PROOF',title:'Product of orthogonal matrices is orthogonal',body:`<div class="big-math">\\[(AB)^T(AB)=B^TA^TAB=B^TIB=B^TB=I\\]</div><p>Every equality has a reason: transpose product rule, associativity, A orthogonal, then B orthogonal.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Orthogonal matrix reps',items:[
+        ['Why are rotation matrices orthogonal?','Their columns are unit and mutually perpendicular, equivalently RᵀR=I.'],
+        ['If A and B are symmetric, is AB always symmetric?','No. (AB)ᵀ=BᵀAᵀ=BA, which need not equal AB.'],
+        ['What does Q⁻¹ equal for orthogonal Q?','Qᵀ.']
+      ]}
+    ]
+  },
+  {
+    id:'induction', icon:'∞', title:'Induction and matrix powers', subtitle:'A mechanical template for three sample problems.', time:'50 min', xp:180, problems:'Sample 17–19 + textbook Ch. 4',
+    steps:[
+      {type:'learn',tag:'3 PARTS',title:'Every induction proof has the same skeleton',body:`<div class="proof-template"><div class="proof-line"><strong>1. Base case:</strong> verify the first value.</div><div class="proof-line"><strong>2. Induction hypothesis:</strong> assume the formula is true at n=k.</div><div class="proof-line"><strong>3. Induction step:</strong> use that assumption to prove n=k+1.</div></div><div class="callout">Do not just say “by induction.” Your grader needs to see all three pieces.</div>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'What are you allowed to assume?',prompt:'In the induction step, you may assume:',choices:['The claim is true for every n','The claim is true for n=k','The claim is true for n=k+1','Nothing'],answer:1,explain:'That assumption is the induction hypothesis. You then use it to establish k+1.'},
+      {type:'learn',tag:'MATRIX POWER',title:'Experiment first, then conjecture',body:`<p>For</p><div class="big-math">\\[A=\\begin{bmatrix}1&1\\\\0&1\\end{bmatrix}\\]</div><p>compute \\(A,A^2,A^3\\). You discover</p><div class="big-math">\\[A^n=\\begin{bmatrix}1&n\\\\0&1\\end{bmatrix}\\]</div><p>Then induction proves the pattern for every positive n. In the step, write \\(A^{k+1}=A^kA\\), substitute the hypothesis, and multiply.</p>`},
+      {type:'learn',tag:'FIBONACCI',title:'The second sample power hides Fibonacci numbers',body:`<p>For \\(A=\\begin{bmatrix}1&1\\\\1&0\\end{bmatrix}\\), the powers follow</p><div class="big-math">\\[A^n=\\begin{bmatrix}F_{n+1}&F_n\\\\F_n&F_{n-1}\\end{bmatrix}\\]</div><p>You do not need to magically know this. The problem tells you to experiment, so calculate several powers, identify the pattern, then prove it.</p>`},
+      {type:'learn',tag:'LINEARITY',title:'Induction also extends linearity from 2 vectors to k vectors',body:`<p>Base case k=2 is literally the definition: \\(T(v_1+v_2)=T(v_1)+T(v_2)\\).</p><p>For the step, group the first k vectors as one vector:</p><div class="big-math">\\[T((v_1+\\cdots+v_k)+v_{k+1})=T(v_1+\\cdots+v_k)+T(v_{k+1})\\]</div><p>Then use the induction hypothesis on the first term.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Induction reps',items:[
+        ['What should the first line of the induction step usually say?','Assume the claim holds for n=k (or k terms).'],
+        ['How do you turn A^(k+1) into something using the hypothesis?','Write A^(k+1)=A^k A (or A A^k), then substitute the formula for A^k.'],
+        ['If your base case starts at k=2, should you prove k=1?','No. Match the first value in the statement.']
+      ]}
+    ]
+  },
+  {
+    id:'safetynet', icon:'✦', title:'Textbook safety net', subtitle:'Likely variations worth knowing even if they are not headline sample questions.', time:'35 min', xp:130, problems:'HW0–2 + Hughes Ch. 2–6',
+    steps:[
+      {type:'learn',tag:'AXIOMS',title:'Vector-space facts your HW0 used',body:`<p>Your HW0 proves facts like uniqueness of the zero vector and \\(0x=0\\) from vector-space axioms. For the test, the practical takeaway is that zero, additive inverses, addition, and scalar multiplication behave consistently in any vector space, including matrix spaces.</p><p>If your professor asks you to prove a basic identity abstractly, cite the allowed vector-space properties instead of arguing from coordinates.</p>`},
+      {type:'learn',tag:'INEQUALITIES',title:'Triangle and reverse triangle inequalities',body:`<div class="big-math">\\[\\|x+y\\|\\le\\|x\\|+\\|y\\|\\]</div><div class="big-math">\\[|\\|x\\|-\\|y\\||\\le\\|x-y\\|\\]</div><p>The reverse inequality comes from applying the triangle inequality to \\(x=(x-y)+y\\), then swapping x and y.</p>`},
+      {type:'quiz',tag:'QUICK CHECK',title:'Span in R³',prompt:'Two nonparallel vectors in R³ span:',choices:['All of R³','A plane through the origin','A shifted plane','Only two points'],answer:1,explain:'Two independent directions give a 2D linear subspace, a plane through the origin.'},
+      {type:'learn',tag:'FUNCTION WORDS',title:'Injective and surjective language hidden inside Sample 6',body:`<p><strong>Injective / one-to-one:</strong> the only way two inputs can land on the same output is if the inputs were the same. For a linear map, “kernel only contains 0” is the key pattern.</p><p><strong>Surjective / onto:</strong> every target y is hit by some x.</p><p>Sample 6(i) is an injectivity-style statement for B. Sample 6(ii) is a surjectivity statement for A.</p>`},
+      {type:'learn',tag:'HYPERPLANES',title:'A hyperplane is one linear equation in Rⁿ',body:`<p>In R² it looks like a line. In R³ it looks like a plane. In R⁴, you cannot draw it well, but the algebra is identical:</p><div class="big-math">\\[a\\cdot(x-p)=0\\]</div><p>The normal vector a is orthogonal to every direction lying in the hyperplane.</p>`},
+      {type:'practice',tag:'PRACTICE',title:'Safety-net reps',items:[
+        ['What is the span of two dependent nonzero vectors in R²?','A line through the origin.'],
+        ['If a set fails closure under multiplication by -1, can it be a subspace?','No, LS3 fails.'],
+        ['If a matrix is both symmetric and skew-symmetric, what must it be?','A=Aᵀ and A=-Aᵀ imply A=-A, so A=0.']
+      ]}
+    ]
+  }
+];
+
+const formulas = [
+  ['Vector length','\\(\\|x\\|=\\sqrt{x\\cdot x}=\\sqrt{x_1^2+\\cdots+x_n^2}\\)','Length, norm, magnitude.'],
+  ['Dot product','\\(x\\cdot y=\\sum_i x_i y_i\\)','Multiply matching coordinates, then add.'],
+  ['Angle','\\(\\cos\\theta=\\frac{x\\cdot y}{\\|x\\|\\|y\\|}\\)','For nonzero vectors.'],
+  ['Projection','\\(\\operatorname{proj}_w(v)=\\frac{v\\cdot w}{w\\cdot w}w\\)','Denominator is ||w||².'],
+  ['Cauchy-Schwarz','\\(|x\\cdot y|\\le\\|x\\|\\|y\\|\\)','Bounds the dot product.'],
+  ['Line','\\(x=p+tu\\)','Start point plus direction.'],
+  ['Hyperplane','\\(a\\cdot(x-p)=0\\)','a is the normal vector.'],
+  ['Subspace test','\\(0\\in V;\\ x,y\\in V\\Rightarrow x+y\\in V;\\ x\\in V,c\\in\\mathbb R\\Rightarrow cx\\in V\\)','LS1, LS2, LS3.'],
+  ['Span','\\(\\operatorname{span}\\{v_i\\}=\\{\\sum a_iv_i\\}\\)','All linear combinations.'],
+  ['Orthogonal complement','\\(V^\\perp=\\{x:x\\cdot v=0\\text{ for every }v\\in V\\}\\)','Everything perpendicular to V.'],
+  ['2D rotation','\\(R_\\theta=\\begin{bmatrix}\\cos\\theta&-\\sin\\theta\\\\\\sin\\theta&\\cos\\theta\\end{bmatrix}\\)','Counterclockwise.'],
+  ['Composition','\\([S\\circ T]=[S][T]\\)','Rightmost transformation acts first.'],
+  ['Orthogonal matrix','\\(Q^TQ=I\\)','Equivalent to Q⁻¹=Qᵀ.'],
+  ['Transpose product','\\((AB)^T=B^TA^T\\)','Order reverses.'],
+  ['2×2 determinant','\\(\\det\\begin{bmatrix}a&b\\\\c&d\\end{bmatrix}=ad-bc\\)','And det(AB)=det(A)det(B).'],
+  ['Induction','Base → assume k → prove k+1','Write all three parts explicitly.']
+];
+
+const proofDojo = [
+  {title:'Kernel is a subspace',prompt:'Let T:Rⁿ→Rᵐ be linear and V={x:T(x)=0}. Prove V is a subspace.',hint:'Use LS1, LS2, LS3 and linearity of T.',solution:'Zero: T(0)=0. If x,y∈V, T(x+y)=T(x)+T(y)=0. If x∈V and c∈R, T(cx)=cT(x)=0. Therefore V is a subspace.'},
+  {title:'Orthogonal-complement equality',prompt:'Prove (U+V)⊥ = U⊥ ∩ V⊥.',hint:'Set equality means two containments. For one direction, use u=u+0 and v=0+v.',solution:'If x∈(U+V)⊥, then x·u=x·(u+0)=0 and x·v=x·(0+v)=0, so x∈U⊥∩V⊥. Conversely, if x is in both perps, then x·(u+v)=0+0 for any u,v, so x∈(U+V)⊥.'},
+  {title:'Unique inverse trick',prompt:'If AB=I=CA, prove B=C.',hint:'Insert AB next to C, then regroup.',solution:'C=CI=C(AB)=(CA)B=IB=B.'},
+  {title:'Product of orthogonal matrices',prompt:'If A and B are orthogonal, prove AB is orthogonal.',hint:'Start with (AB)ᵀ(AB).',solution:'(AB)ᵀ(AB)=BᵀAᵀAB=BᵀIB=BᵀB=I.'},
+  {title:'Affine image',prompt:'If T is linear and V is affine, prove T(V) is affine.',hint:'Write V=p+U where U is linear.',solution:'T(V)=T(p+U)=T(p)+T(U). Since the image of a linear subspace under a linear transformation is a linear subspace, T(V) is a translate of a linear subspace, hence affine.'},
+  {title:'Parallelogram diagonals',prompt:'If a parallelogram has equal side lengths, prove its diagonals are orthogonal.',hint:'Directions are u+v and u−v.',solution:'(u+v)·(u−v)=||u||²−||v||²=0 because ||u||=||v||. Therefore the diagonals are orthogonal.'}
+];
+
+const bossQuestions = [
+  ['Vector mechanics','Let v=[2,-1,2], w=[1,2,0]. Find v·w, ||v||, and decide whether v,w are orthogonal.'],
+  ['Angle + projection','For v=[1,2], w=[2,0], find cosθ and proj_w(v).'],
+  ['Line + plane','Write the line through [2,0,-1] perpendicular to x+2y−z=4.'],
+  ['Subspace','Decide whether {(x,y): x−2y=0} is a subspace, and prove your answer.'],
+  ['Span','Describe span{[1,2,3],[2,4,6]} geometrically.'],
+  ['Matrix order','Pick simple 2×2 matrices A,B with AB≠BA and verify it.'],
+  ['AB=I proof','Assume AB=I. Prove Bx=0 forces x=0.'],
+  ['Transformation matrix','A linear T:R²→R² satisfies T(e1)=[1,3], T(e2)=[-2,4]. Write [T].'],
+  ['Composition','If S and T have matrices A and B, respectively, what is the matrix of S∘T, and why is the order that way?'],
+  ['Orthogonal matrix','Prove that an orthogonal Q preserves lengths.'],
+  ['Perp proof','Prove V∩V⊥={0}.'],
+  ['Induction','For A=[[1,1],[0,1]], prove Aⁿ=[[1,n],[0,1]].'],
+  ['Determinant','Prove det(AB)=det(BA) for 2×2 matrices using the product rule.'],
+  ['Affine R⁴','Given P,Q∈R⁴, write a parametric line through them and explain when that line is linear.']
+];
+
+const defaultState = {xp:0, hearts:5, completed:[], lessonProgress:{}, lastStudy:null, streak:1};
+let state = loadState();
+let currentView = 'home';
+let activeLesson = null;
+let activeStep = 0;
+let answered = false;
+
+function loadState(){
+  try { return {...defaultState,...JSON.parse(localStorage.getItem('m2500Quest')||'{}')}; } catch { return {...defaultState}; }
+}
+function saveState(){ localStorage.setItem('m2500Quest',JSON.stringify(state)); updateStats(); }
+function updateStreak(){
+  const today = new Date().toISOString().slice(0,10);
+  if(!state.lastStudy){ state.lastStudy=today; state.streak=1; saveState(); return; }
+  if(state.lastStudy===today) return;
+  const last=new Date(state.lastStudy+'T12:00:00'); const now=new Date(today+'T12:00:00');
+  const diff=Math.round((now-last)/86400000); state.streak=diff===1?state.streak+1:1; state.lastStudy=today; saveState();
+}
+function updateStats(){
+  document.getElementById('xpStat').textContent=state.xp;
+  document.getElementById('streakStat').textContent=state.streak;
+  document.getElementById('heartStat').textContent=state.hearts;
+}
+function typeset(){ if(window.MathJax?.typesetPromise) setTimeout(()=>MathJax.typesetPromise().catch(()=>{}),0); }
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1700); }
+function setView(view){
+  currentView=view; activeLesson=null;
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+  render(); window.scrollTo({top:0,behavior:'smooth'});
+}
+function unlockedIndex(){ return Math.min(state.completed.length,lessons.length-1); }
+function lessonStatus(i){ if(state.completed.includes(lessons[i].id)) return 'completed'; if(i<=state.completed.length) return 'current'; return 'locked'; }
+function lessonPct(l){ return state.completed.includes(l.id)?100:Math.round(((state.lessonProgress[l.id]||0)/l.steps.length)*100); }
+
+function render(){
+  const app=document.getElementById('app');
+  if(activeLesson){ renderLesson(app); return; }
+  if(currentView==='home') renderHome(app);
+  if(currentView==='vault') renderVault(app);
+  if(currentView==='dojo') renderDojo(app);
+  if(currentView==='boss') renderBoss(app);
+  typeset();
+}
+
+function renderHome(app){
+  const done=state.completed.length; const pct=Math.round(done/lessons.length*100); const next=lessons[Math.min(done,lessons.length-1)];
+  const now=new Date(); const day=now.getDay(); const mission=day===1?'Foundation sprint: vectors → angles':day===2?'Matrices + transformations + subspaces':day===3?'Proofs + induction + mixed reps':day===4?'Retrieval only. No new material.':'Keep the streak alive with one lesson';
+  app.innerHTML=`
+  <section class="hero">
+    <div class="hero-card">
+      <span class="kicker">YOUR ZERO-TO-TEST-READY PATH</span>
+      <h1>Make linear algebra feel beatable.</h1>
+      <p>You start with “what is a vector?” and unlock one idea at a time. Every lesson forces quick checks before moving on, then ends with test-style reps. No assumed background.</p>
+      <div class="cta-row"><button class="btn btn-primary" id="continueBtn">${done===0?'Start from zero':'Continue '+next.title} →</button><button class="btn btn-secondary" data-jump="boss">See the final boss</button></div>
+    </div>
+    <div class="panel mission"><span class="eyebrow">TODAY'S MISSION</span><h3>${mission}</h3><div class="mission-score">${pct}%</div><small>${done} of ${lessons.length} core lessons cleared</small></div>
+  </section>
+  <div class="section-title"><div><h2>Your learning path</h2><p>Locked lessons open automatically as you clear the one before them.</p></div><span class="pill">${state.xp} XP earned</span></div>
+  <section class="journey">${lessons.map((l,i)=>lessonNode(l,i)).join('')}</section>
+  <section class="coverage">
+    <div class="section-title"><div><h2>What this path covers</h2><p>The sample test collapses into a few reusable skills.</p></div></div>
+    <div class="coverage-grid">
+      ${[['1,4,5','Vectors + dot products'],['2','Rotations + composition'],['3,14,15','Subspace proofs'],['6,9,12','Matrix logic'],['7,8,20','Affine geometry'],['10','Orthogonal complements'],['11,16','Orthogonal maps'],['17–19','Induction'],['21–22','Determinants']].map(x=>`<div class="coverage-item"><strong>Sample ${x[0]}</strong><small>${x[1]}</small></div>`).join('')}
+    </div>
+  </section>`;
+  document.getElementById('continueBtn').onclick=()=>openLesson(next.id);
+  app.querySelector('[data-jump="boss"]').onclick=()=>setView('boss');
+  app.querySelectorAll('.lesson-node').forEach(el=>el.onclick=()=>{if(!el.classList.contains('locked'))openLesson(el.dataset.id)});
+}
+function lessonNode(l,i){ const status=lessonStatus(i), pct=lessonPct(l); return `<article class="lesson-node ${status}" data-id="${l.id}"><div class="node-icon">${status==='completed'?'✓':l.icon}</div><div><h3>${i+1}. ${l.title}</h3><p>${l.subtitle}</p><div class="badge-row"><span class="badge">${l.problems}</span></div></div><div class="node-meta"><span class="pill">${l.time}</span><span class="pill">+${l.xp} XP</span><div class="progress-ring" style="--progress:${pct*3.6}deg"><span>${pct}%</span></div></div></article>`; }
+
+function openLesson(id){ activeLesson=lessons.find(l=>l.id===id); activeStep=Math.min(state.lessonProgress[id]||0,activeLesson.steps.length-1); answered=false; updateStreak(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+function renderLesson(app){
+  const l=activeLesson, s=l.steps[activeStep], pct=((activeStep)/l.steps.length)*100;
+  app.innerHTML=`<section class="lesson-screen"><div class="lesson-top"><button class="close" id="lessonClose">←</button><div class="lesson-progress"><i style="width:${pct}%"></i></div><span class="lesson-counter">${activeStep+1}/${l.steps.length}</span></div><article class="step-card">${stepHTML(s)}<div class="step-footer"><span class="pill">${l.title}</span><button class="btn btn-primary" id="nextStep" ${s.type==='quiz'?'disabled':''}>${activeStep===l.steps.length-1?'Finish lesson':'Continue →'}</button></div></article></section>`;
+  document.getElementById('lessonClose').onclick=()=>{activeLesson=null;render();};
+  const next=document.getElementById('nextStep'); if(s.type!=='quiz')next.onclick=advanceStep;
+  if(s.type==='quiz') wireQuiz(s,next);
+  typeset();
+}
+function stepHTML(s){
+  if(s.type==='learn') return `<span class="step-tag">${s.tag}</span><h1>${s.title}</h1>${s.body}`;
+  if(s.type==='video') return `<span class="step-tag">${s.tag}</span><h1>${s.title}</h1><div class="video-card"><h3>${s.label}</h3><p>${s.why}</p><a href="${s.url}" target="_blank" rel="noopener">Open video on YouTube ↗</a></div><p>Come back here right after. The next step assumes only the idea, not memorized wording.</p>`;
+  if(s.type==='quiz') return `<span class="step-tag">${s.tag}</span><h1>${s.title}</h1><p>${s.prompt}</p><div class="choices">${s.choices.map((c,i)=>`<button class="choice" data-choice="${i}">${c}</button>`).join('')}</div><div id="feedback" class="feedback"></div>`;
+  if(s.type==='practice') return `<span class="step-tag">${s.tag}</span><h1>${s.title}</h1><p>Try each one on paper before opening the answer.</p><div class="practice-list">${s.items.map((x,i)=>`<details class="practice"><summary>${i+1}. ${x[0]}</summary><div>${x[1]}</div></details>`).join('')}</div>`;
+  return '';
+}
+function wireQuiz(s,next){
+  document.querySelectorAll('.choice').forEach(btn=>btn.onclick=()=>{
+    if(answered) return;
+    const i=Number(btn.dataset.choice), fb=document.getElementById('feedback');
+    if(i===s.answer){ answered=true; btn.classList.add('correct'); fb.className='feedback show good'; fb.innerHTML=`<strong>Correct.</strong> ${s.explain}`; next.disabled=false; next.onclick=advanceStep; state.xp+=10; saveState(); toast('+10 XP'); }
+    else { btn.classList.add('wrong'); fb.className='feedback show bad'; fb.innerHTML=`Not quite. ${s.explain} Try again.`; state.hearts=Math.max(0,state.hearts-1); saveState(); setTimeout(()=>btn.classList.remove('wrong'),600); if(state.hearts===0){state.hearts=5;saveState();toast('Focus refilled. Keep going.');} }
+  });
+}
+function advanceStep(){
+  const l=activeLesson;
+  if(activeStep<l.steps.length-1){ activeStep++; answered=false; state.lessonProgress[l.id]=Math.max(state.lessonProgress[l.id]||0,activeStep); saveState(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+  else { if(!state.completed.includes(l.id)){state.completed.push(l.id);state.xp+=l.xp;state.lessonProgress[l.id]=l.steps.length;saveState();toast(`Lesson cleared: +${l.xp} XP`);} activeLesson=null; render(); }
+}
+
+function renderVault(app){
+  app.innerHTML=`<div class="view-heading"><span class="kicker">FORMULA VAULT</span><h1>The stuff worth memorizing</h1><p>Do not memorize these before you understand them. Once a lesson makes sense, use this page for fast retrieval drills.</p></div><div class="formula-list">${formulas.map(f=>`<div class="formula-card"><h3>${f[0]}</h3><div class="formula">${f[1]}</div><p>${f[2]}</p></div>`).join('')}</div>`;
+}
+function renderDojo(app){
+  app.innerHTML=`<div class="view-heading"><span class="kicker">PROOF DOJO</span><h1>Train the proof moves</h1><p>Write the proof on paper first. Then reveal the hint. Only reveal the model solution after you have committed to an approach.</p></div><div class="question-bank">${proofDojo.map((q,i)=>`<article class="bank-q"><span class="pill">Proof ${i+1}</span><h4>${q.title}</h4><p>${q.prompt}</p><details class="practice"><summary>Hint</summary><div>${q.hint}</div></details><details class="practice"><summary>Model skeleton</summary><div>${q.solution}</div></details></article>`).join('')}</div>`;
+}
+function renderBoss(app){
+  const ready=state.completed.length>=Math.ceil(lessons.length*.7);
+  app.innerHTML=`<div class="view-heading"><span class="kicker">BOSS BATTLE</span><h1>Mixed Test 1 gauntlet</h1><p>This is intentionally mixed. The real test will not tell you which lesson a problem came from. Try these closed-note and write complete reasoning.</p></div><div class="boss-card"><h2>${ready?'You are ready to take a serious swing.':'You can preview this now, but build more of the path first.'}</h2><p>${state.completed.length}/${lessons.length} lessons cleared. Aim to solve at least 10 of 14 without looking at the Formula Vault.</p></div><div class="section-title"><div><h2>14 mixed questions</h2><p>No solutions are shown here on purpose. Use the lesson practice and Proof Dojo to check methods.</p></div></div><div class="question-bank">${bossQuestions.map((q,i)=>`<article class="bank-q"><span class="pill">${i+1}/14</span><h4>${q[0]}</h4><p>${q[1]}</p></article>`).join('')}</div><button class="reset-btn" id="resetProgress">Reset all progress</button>`;
+  document.getElementById('resetProgress').onclick=()=>{if(confirm('Reset all XP and lesson progress?')){state={...defaultState};saveState();render();}};
+}
+
+document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>setView(btn.dataset.view)));
+updateStreak(); updateStats(); render();
+
+const start=new Date('2026-09-21T00:00:00-05:00'), test=new Date('2026-09-24T23:59:00-05:00'), now=new Date();
+const frac=Math.max(0,Math.min(1,(now-start)/(test-start))); const bar=document.getElementById('deadlineBar'); if(bar)bar.style.width=`${Math.round(frac*100)}%`;
+
+</script>
+</body>
+</html>
