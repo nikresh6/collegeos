@@ -126,6 +126,69 @@ button{font:inherit}.top{position:sticky;top:0;z-index:40;background:rgba(6,16,1
   .econ-step-actions .btn{flex:1}
 }
 
+
+/* === lesson shell v3: true dedicated study screen === */
+body.lesson-focus{background:#050b07!important;overflow:hidden!important}
+body.lesson-focus .top{display:none!important}
+body.lesson-focus #lesson{
+  position:fixed!important;
+  inset:0!important;
+  z-index:9999!important;
+  width:100vw!important;
+  height:100dvh!important;
+  min-height:100vh!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  background:
+    radial-gradient(circle at 50% -15%,rgba(156,255,87,.10),transparent 32%),
+    linear-gradient(180deg,#07110c 0%,#050a07 100%)!important;
+  padding:28px 18px 56px!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  isolation:isolate!important;
+}
+body.lesson-focus #lesson:before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(180deg,#07110c 0%,#050a07 100%);
+}
+body.lesson-focus .econ-lesson-screen{max-width:780px!important;margin:0 auto!important}
+body.lesson-focus .econ-lesson-top{margin:0 auto 18px!important}
+body.lesson-focus .econ-step-card{
+  width:100%!important;
+  min-height:520px!important;
+  padding:clamp(26px,4vw,40px)!important;
+  border-radius:24px!important;
+  background:linear-gradient(155deg,#0d1b14 0%,#09130e 100%)!important;
+  border:1px solid rgba(255,255,255,.085)!important;
+  box-shadow:none!important;
+}
+body.lesson-focus .econ-step-card h1{
+  max-width:680px;
+  font-size:clamp(30px,4vw,42px)!important;
+}
+body.lesson-focus .econ-step-card p,
+body.lesson-focus .econ-step-card li{max-width:680px}
+body.lesson-focus .econ-step-footer{
+  border-top:1px solid rgba(255,255,255,.07);
+  padding-top:20px!important;
+  margin-top:auto!important;
+}
+body.lesson-focus .econ-world-pill{
+  background:transparent!important;
+  border:0!important;
+  padding-left:0!important;
+  color:#789083!important;
+}
+@media(max-width:620px){
+  body.lesson-focus #lesson{padding:16px 12px 28px!important}
+  body.lesson-focus .econ-step-card{min-height:calc(100dvh - 86px)!important;padding:24px 18px!important;border-radius:20px!important}
+  body.lesson-focus .econ-step-card h1{font-size:30px!important}
+}
+
 </style>
 </head>
 <body>
