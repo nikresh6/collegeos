@@ -455,7 +455,7 @@ function renderBossHome(app){
   const ready=state.completed.length>=Math.ceil(D.worlds.length*.7);
   app.innerHTML="<section class='card boss-hero'><div><div class='kicker'>FINAL BOSS</div><h2>35 questions. No hints. No instant feedback.</h2><p>This sim pulls from the entire bank, including artist fingerprints, course concepts, technology, race and genre, labels, social context, and cross-unit connections.</p><div class='cta'><button class='btn btn-primary' id='startBoss'>Start exam sim</button><button class='btn btn-secondary' id='encoreBoss'>Clear Encore first</button></div></div>"+
     "<div class='boss-meter'><span>READINESS</span><b>"+overallMastery()+"%</b><p>"+(ready?"You have enough quest coverage for a serious attempt.":"Preview is allowed, but clear more quest worlds first for a fair score.")+"</p>"+(state.bestBoss!=null?"<span>BEST SCORE</span><b>"+state.bestBoss+"%</b>":"")+"</div></section>"+
-    "<div class='section-head'><div><h2>Boss rules</h2><p>Answer from memory. Explanations appear only after the score.</p></div></div>"+
+    "<div class='section-head'><div><h2>Boss rules</h2><p>Answer from memory. Your score appears only after the run is complete.</p></div></div>"+
     "<section class='mode-grid'>"+modeCard("🧩","Concepts","Genre, technology, race, culture","Mixed") + modeCard("🎤","Artists","Style fingerprints and influence","Mixed") + modeCard("🔗","Connections","Cause and effect across weeks","Mixed")+"</section>"+
     "<button class='reset' id='resetProgress'>Reset all Rock Quest progress</button>";
   document.getElementById("startBoss").onclick=()=>startQuiz(35,false,true);
