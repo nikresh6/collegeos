@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090706">
+  <meta name="description" content="Gamified MUSL 1650 History of Rock midterm study quest built around active recall, source-grounded lessons, flashcards, timelines, and exam simulations.">
+  <title>History of Rock Quest | MUSL 1650</title>
+  <link rel="stylesheet" href="/rock.css">
+</head>
+<body>
+  <div class="bg-noise"></div>
+
+  <header class="topbar">
+    <div class="topin">
+      <button class="brand" data-view="quest" aria-label="History of Rock Quest home">
+        <span class="brandmark"></span>
+        <span><strong>History of Rock Quest</strong><small>MUSL 1650 · Midterm I</small></span>
+      </button>
+      <div class="topstats">
+        <div class="topstat"><span>⚡</span><b id="xpStat">0</b><small>XP</small></div>
+        <div class="topstat"><span>🔥</span><b id="streakStat">1</b><small>Streak</small></div>
+        <div class="topstat"><span>🎚️</span><b id="masteryStat">0%</b><small>Mastery</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="nav">
+        <button class="navbtn active" data-view="quest"><i>🗺️</i>Quest</button>
+        <button class="navbtn" data-view="cards"><i>🃏</i>Flashcards</button>
+        <button class="navbtn" data-view="quiz"><i>🎯</i>Quiz Arena</button>
+        <button class="navbtn" data-view="timeline"><i>🕰️</i>Timeline</button>
+        <button class="navbtn" data-view="readings"><i>📚</i>Reading Rescue</button>
+        <button class="navbtn" data-view="boss"><i>🏟️</i>Final Boss</button>
+      </nav>
+
+      <section class="examcard">
+        <div class="eyebrow">EXAM I</div>
+        <b>October 13</b>
+        <p>Lectures, assigned readings, discussion material, and selected listening examples.</p>
+        <div class="scope-note">Built around Weeks 1 through 7. Week 7 is labeled as preview material until those class meetings happen.</div>
+      </section>
+    </aside>
+
+    <main class="main" id="app"></main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Mobile study navigation">
+    <button class="active" data-view="quest"><i>🗺️</i><small>Quest</small></button>
+    <button data-view="cards"><i>🃏</i><small>Cards</small></button>
+    <button data-view="quiz"><i>🎯</i><small>Quiz</small></button>
+    <button data-view="readings"><i>📚</i><small>Readings</small></button>
+    <button data-view="boss"><i>🏟️</i><small>Boss</small></button>
+  </nav>
+
+  <div class="study-modal" id="studyModal" aria-live="polite"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="/rock-curriculum.js"></script>
+  <script src="/rock-questions.js"></script>
+  <script src="/rock.js"></script>
+</body>
+</html>
