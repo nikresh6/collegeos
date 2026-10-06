@@ -11,3 +11,23 @@ window.ROCK_REVIEW = {"prompts":[{"label":"1","title":"In-depth musical analysis
     if(w) w.steps = w.steps.concat(R.extraSteps[id]);
   });
 })();
+
+(function(){
+  if(!window.ROCK_DATA)return;
+  const extras=[
+    {week:"2",title:"Hillbilly Boogie",status:"ASSIGNED READING",source:"COURSE READING CONTEXT",
+      summary:"Use this reading inside the race/hillbilly category problem. Country and blues developed in overlapping Southern sound worlds even though the record industry sold them through separate racial and regional categories.",
+      bullets:["Connect hillbilly marketing to Ralph Peer and Fiddlin' John Carson.","Remember that Jimmie Rodgers uses 12-bar blues and AAB.","Use Lesley Riddle and the Carter Family as evidence that repertories crossed racial boundaries."]},
+    {week:"2",title:"Bristol Sessions",status:"ASSIGNED VIDEO",source:"COURSE SLIDES + ASSIGNED VIDEO",
+      summary:"The 1927 Bristol Sessions are called the Big Bang of Country Music in the slides. They turn regional performers such as Jimmie Rodgers and the Carter Family into commercial recording artists and show record companies going to regional talent rather than waiting for it to come to major cities.",
+      bullets:["1927.","Jimmie Rodgers and Carter Family.","Technology plus field recording plus marketing creates a national country industry."]},
+    {week:"3",title:"Interview with Arthur Crudup",status:"ASSIGNED READING",source:"ASSIGNED READING + VERIFIED INTERVIEW CONTEXT",
+      summary:"Crudup is essential because Elvis's first Sun single reworks his That's All Right. Crudup later described Elvis's version as a kind of hillbilly treatment and said he liked the way it broadened the song's appeal, while his own career also exposes the unequal royalty system facing Black songwriters.",
+      bullets:["That's All Right begins as Crudup's blues recording.","Elvis changes tempo, instrumentation, market, and racial context.","Do not discuss influence without also noticing ownership, credit, and payment."]},
+    {week:"3",title:"Ruth Brown on radio, R&B, and rock and roll",status:"REVIEW-SHEET VOICE",source:"RUTH BROWN INTERVIEW",
+      summary:"Brown said radio helped rhythm and blues turn into rock and roll because young people could turn the dial and hear music without first seeing the performer's race. She remembered music becoming a common denominator even when venues tried to maintain segregated dance floors.",
+      bullets:["Radio changes listening and racial perception.","R&B and rock-and-roll touring circuits overlapped.","Her story connects technology, race, youth culture, and genre change."]}
+  ];
+  const titles=new Set(window.ROCK_DATA.readings.map(function(x){return x.title}));
+  extras.forEach(function(x){if(!titles.has(x.title))window.ROCK_DATA.readings.push(x)});
+})();
