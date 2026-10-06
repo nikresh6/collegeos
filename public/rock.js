@@ -486,14 +486,29 @@ function renderNotes(app){
   };
 }
 
+
+function startBalancedBoss(){
+  touchStudy();
+  let qs=[];
+  D.worlds.forEach(function(w){
+    const pool=shuffle(QB.questions.filter(function(q){return q.world===w.id;}));
+    qs=qs.concat(pool.slice(0,Math.min(3,pool.length)));
+  });
+  qs=qs.concat(shuffle(QB.questions.filter(function(q){return q.world==="mix";})).slice(0,6));
+  qs=shuffle(qs);
+  activeQuiz={questions:qs,index:0,correct:0,answers:[],boss:true,locked:false,start:Date.now()};
+  view="boss";
+  renderQuizQuestion();
+}
+
 function renderBossHome(app){
   const ready=state.completed.length>=Math.ceil(D.worlds.length*.7);
-  app.innerHTML="<section class='card boss-hero'><div><div class='kicker'>FINAL BOSS</div><h2>35 questions. No hints. No instant feedback.</h2><p>This sim pulls from the entire bank, including artist fingerprints, course concepts, technology, race and genre, labels, social context, and cross-unit connections.</p><div class='cta'><button class='btn btn-primary' id='startBoss'>Start exam sim</button><button class='btn btn-secondary' id='encoreBoss'>Clear Encore first</button></div></div>"+
+  app.innerHTML="<section class='card boss-hero'><div><div class='kicker'>FINAL BOSS</div><h2>42 balanced questions. No hints. No instant feedback.</h2><p>This sim forces coverage across every quest world, then adds synthesis questions. One lucky random draw cannot hide a weak unit.</p><div class='cta'><button class='btn btn-primary' id='startBoss'>Start exam sim</button><button class='btn btn-secondary' id='encoreBoss'>Clear Encore first</button></div></div>"+
     "<div class='boss-meter'><span>READINESS</span><b>"+overallMastery()+"%</b><p>"+(ready?"You have enough quest coverage for a serious attempt.":"Preview is allowed, but clear more quest worlds first for a fair score.")+"</p>"+(state.bestBoss!=null?"<span>BEST SCORE</span><b>"+state.bestBoss+"%</b>":"")+"</div></section>"+
     "<div class='section-head'><div><h2>Boss rules</h2><p>Answer from memory. Your score appears only after the run is complete.</p></div></div>"+
     "<section class='mode-grid'>"+modeCard("🧩","Concepts","Genre, technology, race, culture","Mixed") + modeCard("🎤","Artists","Style fingerprints and influence","Mixed") + modeCard("🔗","Connections","Cause and effect across weeks","Mixed")+"</section>"+
     "<button class='reset' id='resetProgress'>Reset all Rock Quest progress</button>";
-  document.getElementById("startBoss").onclick=()=>startQuiz(35,false,true);
+  document.getElementById("startBoss").onclick=startBalancedBoss;
   document.getElementById("encoreBoss").onclick=()=>{if(state.missed.length)startQuiz(state.missed.length,true,false);else toast("Encore Deck is empty");};
   document.getElementById("resetProgress").onclick=()=>{if(confirm("Reset all History of Rock Quest progress?")){state=Object.assign({},defaults,{completed:[],lessonProgress:{},quizPassed:{},missed:[],flashMastery:{}});localStorage.setItem(KEY,JSON.stringify(state));render();updateTopStats();}};
 }
