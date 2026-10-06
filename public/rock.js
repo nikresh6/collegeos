@@ -115,6 +115,7 @@ function setView(v){
   bossTimer = null;
   view = v;
   activeLesson = null;
+  document.body.classList.toggle("notes-view",v==="notes");
   document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   render();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -128,6 +129,7 @@ function render(){
   else if(view==="quiz") renderQuizHome(app);
   else if(view==="timeline") renderTimeline(app);
   else if(view==="readings") renderReadings(app);
+  else if(view==="notes") renderNotes(app);
   else if(view==="boss") renderBossHome(app);
   updateTopStats();
 }
@@ -142,8 +144,11 @@ function worldProgress(w){
   return Math.max(0,Math.min(99,Math.round((base/total)*100)));
 }
 function worldSteps(w){
-  const quizzes = (w.quizIds||[]).map(id=>QB.questions.find(q=>q.id===id)).filter(Boolean).map(q=>({type:"quiz",q:q}));
-  const checkpoint = quizzes.length ? [{type:"divider",title:"Recall checkpoint",body:"Now prove you can retrieve it without looking back."}] : [];
+  const baseIds = w.quizIds || [];
+  const base = baseIds.map(id=>QB.questions.find(q=>q.id===id)).filter(Boolean);
+  const extras = QB.questions.filter(q=>q.world===w.id && !baseIds.includes(q.id));
+  const quizzes = base.concat(extras).map(q=>({type:"quiz",q:q}));
+  const checkpoint = quizzes.length ? [{type:"divider",title:"Recall checkpoint",body:"Now prove you can retrieve it without looking back. These questions include exact slide details, not just broad concepts."}] : [];
   return w.steps.concat(checkpoint,quizzes);
 }
 function nextWorld(){
@@ -159,7 +164,7 @@ function renderQuest(app){
         "<div class='kicker'>ZERO TO MIDTERM READY</div>" +
         "<h1>Build the story of rock, then make it stick.</h1>" +
         "<p>You start from zero. Every world teaches the material in plain language, then forces active recall before you can move on. Missed questions automatically enter your Encore Deck so weak spots keep coming back.</p>" +
-        "<div class='cta'><button class='btn btn-primary' id='continueQuest'>" + (state.completed.length ? "Continue quest" : "Start from zero") + " →</button><button class='btn btn-secondary' id='quickQuiz'>10-question warm-up</button><button class='btn btn-ghost' id='timelineJump'>Open timeline</button></div>" +
+        "<div class='cta'><button class='btn btn-primary' id='continueQuest'>" + (state.completed.length ? "Continue quest" : "Start from zero") + " →</button><button class='btn btn-secondary' id='quickQuiz'>10-question warm-up</button><button class='btn btn-ghost' id='notesJump'>Exam notebook</button><button class='btn btn-ghost' id='timelineJump'>Timeline</button></div>" +
       "</div>" +
       "<div class='card hero-side'>" +
         "<div class='mastery-ring' id='ring' style='background:conic-gradient(var(--orange) "+(mastery*3.6)+"deg,rgba(255,255,255,.07) 0deg)'><div><b>"+mastery+"%</b><span>overall mastery</span></div></div>" +
@@ -175,6 +180,7 @@ function renderQuest(app){
     "<section class='quest-list'>" + D.worlds.map((w,i)=>worldCard(w,i)).join("") + "</section>";
   document.getElementById("continueQuest").onclick = ()=>openWorld(next.id);
   document.getElementById("quickQuiz").onclick = ()=>startQuiz(10,false,false);
+  document.getElementById("notesJump").onclick = ()=>setView("notes");
   document.getElementById("timelineJump").onclick = ()=>setView("timeline");
   app.querySelectorAll("[data-world]").forEach(el=>el.onclick=()=>{ if(!el.classList.contains("locked")) openWorld(el.dataset.world); });
 }
@@ -449,6 +455,35 @@ function renderOrder(){
 function renderReadings(app){
   app.innerHTML="<div class='view-heading'><div class='kicker'>READING RESCUE</div><h1>You did not read it. Start here.</h1><p>These are compact exam-oriented rescues, not fake replacements for material we do not have. Each card tells you whether it comes from course material, public reading context, or syllabus-only preview.</p></div>"+
     "<section class='reading-grid'>"+D.readings.map(r=>"<article class='card reading'><div class='eyebrow'>WEEK "+esc(r.week)+"</div><h3>"+esc(r.title)+"</h3><span class='badge status "+sourceClass(r.source)+"'>"+esc(r.source)+"</span><p>"+esc(r.summary)+"</p><ul>"+r.bullets.map(b=>"<li>"+esc(b)+"</li>").join("")+"</ul></article>").join("")+"</section>";
+}
+
+
+function renderNotes(app){
+  const R=window.ROCK_REVIEW;
+  if(!R){app.innerHTML="<div class='empty'>Review notebook is not loaded.</div>";return;}
+  const renderCards=function(items){
+    const host=document.getElementById("reviewGrid");
+    if(!host)return;
+    host.innerHTML=items.map(function(r){
+      return "<details class='card review-card' open><summary><div><span class='review-num'>"+esc(r.label)+"</span><strong>"+esc(r.title)+"</strong><span class='badge "+sourceClass(r.source)+"'>"+esc(r.source)+"</span></div><span class='review-chevron'>⌄</span></summary><div class='review-body'><div class='review-prompt'>"+esc(r.prompt)+"</div>"+r.answer+"<div class='review-must'><span>DO NOT LEAVE OUT</span><ul>"+r.must.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+"</ul></div></div></details>";
+    }).join("");
+  };
+  app.innerHTML="<div class='view-heading'><div class='kicker'>OPEN-NOTE EXAM NOTEBOOK</div><h1>Every review-sheet prompt, answered.</h1><p>This is built to be useful both while studying and as a clean set of notes to print before the exam. It prioritizes your professor's slides, review sheet, readings, and your own Assignment 1 findings. Supplemental background is labeled separately.</p></div>"+
+  "<section class='card notebook-tools'><div><strong>"+R.prompts.length+" review prompts covered</strong><p>The review sheet says it is not an outline of the exam, so this notebook is paired with the full quest and question bank rather than replacing them.</p></div><div class='notebook-actions'><input id='reviewSearch' class='review-search' placeholder='Search Chicago, Johnson, radio, Chuck Berry...'><button class='btn btn-primary' id='printNotes'>Print / Save PDF</button><button class='btn btn-secondary' id='collapseNotes'>Collapse all</button></div></section>"+
+  "<section class='review-grid' id='reviewGrid'></section>"+
+  "<div class='card notebook-footer'><strong>Exam rule reminder</strong><p>Your review sheet says the exam is open note, but internet and additional sources may not be used during exam time. Print or save the notes you are allowed to use before the exam, and follow your instructor's exact rule.</p></div>";
+  renderCards(R.prompts);
+  document.getElementById("reviewSearch").addEventListener("input",function(e){
+    const term=e.target.value.toLowerCase().trim();
+    const items=!term?R.prompts:R.prompts.filter(function(r){
+      return (r.title+" "+r.prompt+" "+r.answer+" "+r.must.join(" ")).toLowerCase().includes(term);
+    });
+    renderCards(items);
+  });
+  document.getElementById("printNotes").onclick=function(){window.print();};
+  document.getElementById("collapseNotes").onclick=function(){
+    document.querySelectorAll(".review-card").forEach(function(x){x.open=false;});
+  };
 }
 
 function renderBossHome(app){
