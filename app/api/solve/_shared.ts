@@ -540,20 +540,27 @@ export async function loadPrivateSolvePlan({
     );
   }
 
-  const plan = normalizeSolvePlan(data.plan);
+  const privateData = data as {
+    plan: unknown;
+    final_answer: string | null;
+    verification: unknown;
+    model: string | null;
+  };
+
+  const plan = normalizeSolvePlan(privateData.plan);
 
   if (
-    typeof data.final_answer === "string" &&
-    data.final_answer.trim()
+    typeof privateData.final_answer === "string" &&
+    privateData.final_answer.trim()
   ) {
-    plan.finalAnswer = data.final_answer.trim();
+    plan.finalAnswer = privateData.final_answer.trim();
   }
 
   const rawVerification =
-    data.verification &&
-    typeof data.verification === "object" &&
-    !Array.isArray(data.verification)
-      ? (data.verification as Record<string, unknown>)
+    privateData.verification &&
+    typeof privateData.verification === "object" &&
+    !Array.isArray(privateData.verification)
+      ? (privateData.verification as Record<string, unknown>)
       : {};
   const rawCurrentStep = Number(
     rawVerification.currentStep ?? 0,
@@ -591,8 +598,8 @@ export async function loadPrivateSolvePlan({
     plan,
     verification,
     model:
-      typeof data.model === "string"
-        ? data.model
+      typeof privateData.model === "string"
+        ? privateData.model
         : "",
   };
 }
