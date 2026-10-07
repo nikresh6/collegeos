@@ -222,23 +222,29 @@ export function createClient(
     async signOut() {
       return { error: null };
     },
-    async updateUser(input: { data?: Record<string, unknown> }) {
-      if (input?.data) Object.assign(metadata, input.data);
+    async updateUser(input?: Record<string, unknown>) {
+      const data =
+        input?.data &&
+        typeof input.data === "object" &&
+        !Array.isArray(input.data)
+          ? (input.data as Record<string, unknown>)
+          : null;
+      if (data) Object.assign(metadata, data);
       return { data: { user: buildUser() }, error: null };
     },
-    async signInWithPassword() {
+    async signInWithPassword(_input?: unknown) {
       return {
         data: { user: buildUser(), session: buildSession() },
         error: null,
       };
     },
-    async signUp() {
+    async signUp(_input?: unknown) {
       return {
         data: { user: buildUser(), session: buildSession() },
         error: null,
       };
     },
-    async signInWithOAuth() {
+    async signInWithOAuth(_input?: unknown) {
       return {
         data: { provider: "collegeos", url: null },
         error: null,
@@ -258,11 +264,26 @@ export function createClient(
     },
   };
 
+  const realtimeChannel = () => {
+    const channel: {
+      on: (...args: unknown[]) => typeof channel;
+      subscribe: (...args: unknown[]) => typeof channel;
+      unsubscribe: () => Promise<string>;
+    } = {
+      on: (..._args: unknown[]) => channel,
+      subscribe: (..._args: unknown[]) => channel,
+      unsubscribe: async () => "ok",
+    };
+    return channel;
+  };
+
   return {
     from: rest.from.bind(rest),
     rpc: rest.rpc.bind(rest),
     schema: rest.schema.bind(rest),
     auth,
+    channel: (_name: string) => realtimeChannel(),
+    removeChannel: async (_channel: unknown) => "ok",
     storage: {
       from(bucket: string) {
         return new NeonStorageBucket(bucket);
