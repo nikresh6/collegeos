@@ -65,10 +65,9 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "delete") {
-      const paths = Array.isArray(body.paths)
-        ? body.paths.filter(validPath)
-        : [];
-      if (paths.length === 0 || paths.length !== body.paths?.length) {
+      const rawPaths = Array.isArray(body.paths) ? body.paths : [];
+      const paths = rawPaths.filter(validPath);
+      if (paths.length === 0 || paths.length !== rawPaths.length) {
         return NextResponse.json(
           { ok: false, error: "Invalid delete request." },
           { status: 400 },
