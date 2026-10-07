@@ -1,4 +1,4 @@
-import { PostgrestClient } from "@supabase/postgrest-js";
+import { createClient as createNeonClient } from "@neondatabase/neon-js";
 
 type AuthCallback = (
   event: string,
@@ -205,12 +205,16 @@ export function createClient(
   _key?: string,
   _options?: unknown,
 ) {
-  const dataApiUrl = process.env.NEXT_PUBLIC_NEON_DATA_API_URL;
-  if (!dataApiUrl) {
-    throw new Error("NEXT_PUBLIC_NEON_DATA_API_URL is missing.");
+  const neonDatabaseUrl = process.env.NEXT_PUBLIC_NEON_DATABASE_URL;
+  if (!neonDatabaseUrl) {
+    throw new Error("NEXT_PUBLIC_NEON_DATABASE_URL is missing.");
   }
 
-  const rest = new PostgrestClient(dataApiUrl);
+  const rest = createNeonClient(neonDatabaseUrl, {
+    auth: {
+      allowAnonymous: true,
+    },
+  });
 
   const auth = {
     async getSession() {
