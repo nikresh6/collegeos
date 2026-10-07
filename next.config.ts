@@ -1,4 +1,5 @@
-import path from "node:path";\nimport type { NextConfig } from "next";
+import path from "node:path";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Keep native/server-only packages external so their runtime assets stay
