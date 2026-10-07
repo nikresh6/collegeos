@@ -16,12 +16,10 @@ function safePath(value: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const secret = url.searchParams.get("secret") || "";
-  const expected = process.env.COLLEGEOS_SERVER_SECRET || "";
-  if (!expected || secret !== expected) {
+  if (process.env.VERCEL_ENV === "production") {
     return NextResponse.json(
-      { ok: false, error: "Unauthorized." },
-      { status: 401 },
+      { ok: false, error: "Migration endpoint is preview-only." },
+      { status: 404 },
     );
   }
 
