@@ -264,14 +264,26 @@ export function createClient(
     },
   };
 
+  type RealtimePayload = {
+    new: Record<string, unknown>;
+    old?: Record<string, unknown>;
+  };
+
   const realtimeChannel = () => {
     const channel: {
-      on: (...args: unknown[]) => typeof channel;
-      subscribe: (...args: unknown[]) => typeof channel;
+      on: (
+        event: string,
+        filter: Record<string, unknown>,
+        callback: (payload: RealtimePayload) => void,
+      ) => typeof channel;
+      subscribe: (callback?: (status: string) => void) => typeof channel;
       unsubscribe: () => Promise<string>;
     } = {
-      on: (..._args: unknown[]) => channel,
-      subscribe: (..._args: unknown[]) => channel,
+      on: (_event, _filter, _callback) => channel,
+      subscribe: (callback) => {
+        callback?.("SUBSCRIBED");
+        return channel;
+      },
       unsubscribe: async () => "ok",
     };
     return channel;
