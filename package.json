@@ -31,7 +31,8 @@
     "react-dom": "19.2.8",
     "temporal-polyfill": "^1.0.4",
     "tsdav": "^2.3.1",
-    "tus-js-client": "^4.3.1"
+    "tus-js-client": "^4.3.1",
+    "@neondatabase/neon-js": "^0.7.0-beta"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
