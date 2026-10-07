@@ -1,32 +1,8 @@
 "use client";
 
-import * as tus from "tus-js-client";
 import { supabase } from "./supabase";
 
 const LECTURE_BUCKET = "lecture-audio";
-const TUS_CHUNK_SIZE = 6 * 1024 * 1024;
-
-function getProjectId() {
-  const projectUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!projectUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL is missing.",
-    );
-  }
-
-  const hostname = new URL(projectUrl).hostname;
-  const projectId = hostname.split(".")[0];
-
-  if (!projectId) {
-    throw new Error(
-      "Could not determine the Supabase project ID.",
-    );
-  }
-
-  return projectId;
-}
 
 export async function uploadLectureAudio({
   file,
@@ -43,60 +19,47 @@ export async function uploadLectureAudio({
   } = await supabase.auth.getSession();
 
   if (sessionError) throw sessionError;
-
   if (!session) {
-    throw new Error(
-      "You must be signed in to upload a lecture.",
-    );
+    throw new Error("You must be signed in to upload a lecture.");
   }
 
-  const projectId = getProjectId();
+  const { data, error } = await supabase.storage
+    .from(LECTURE_BUCKET)
+    .createSignedUploadUrl(storagePath);
+
+  if (error || !data?.signedUrl) {
+    throw error || new Error("Could not prepare the lecture upload.");
+  }
 
   return new Promise<void>((resolve, reject) => {
-    const upload = new tus.Upload(file, {
-      endpoint: `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: {
-        authorization: `Bearer ${session.access_token}`,
-      },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      chunkSize: TUS_CHUNK_SIZE,
-      metadata: {
-        bucketName: LECTURE_BUCKET,
-        objectName: storagePath,
-        contentType:
-          file.type || "application/octet-stream",
-        cacheControl: "3600",
-      },
-      onError(error) {
-        reject(error);
-      },
-      onProgress(bytesUploaded, bytesTotal) {
-        const percent =
-          bytesTotal > 0
-            ? (bytesUploaded / bytesTotal) * 100
-            : 0;
+    const request = new XMLHttpRequest();
+    request.open("PUT", data.signedUrl);
+    if (file.type) {
+      request.setRequestHeader("Content-Type", file.type);
+    }
 
-        onProgress?.(percent);
-      },
-      onSuccess() {
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) return;
+      onProgress?.((event.loaded / event.total) * 100);
+    };
+
+    request.onerror = () => {
+      reject(new Error("The lecture upload could not reach Neon storage."));
+    };
+
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
         onProgress?.(100);
         resolve();
-      },
-    });
+        return;
+      }
+      reject(
+        new Error(
+          `Neon storage rejected the lecture upload with status ${request.status}.`,
+        ),
+      );
+    };
 
-    void upload
-      .findPreviousUploads()
-      .then((previousUploads) => {
-        if (previousUploads.length > 0) {
-          upload.resumeFromPreviousUpload(
-            previousUploads[0],
-          );
-        }
-
-        upload.start();
-      })
-      .catch(reject);
+    request.send(file);
   });
 }
