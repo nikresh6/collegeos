@@ -518,12 +518,18 @@ export async function loadPrivateSolvePlan({
   sessionId: string;
   userId: string;
 }) {
+  const secret = process.env.COLLEGEOS_SERVER_SECRET;
+  if (!secret) {
+    throw new Error("The private solver store is not configured on the server.");
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("solve_solution_keys")
-    .select("plan, final_answer, verification, model")
-    .eq("session_id", sessionId)
-    .eq("user_id", userId)
+    .rpc("get_private_solve_plan", {
+      p_session_id: sessionId,
+      p_user_id: userId,
+      p_secret: secret,
+    })
     .maybeSingle();
 
   if (error) throw error;
